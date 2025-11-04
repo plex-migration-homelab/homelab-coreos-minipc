@@ -7,11 +7,26 @@ base-image: ghcr.io/ublue-os/ucore
 image-version: latest
 
 modules:
+  # Enable RPM Fusion repos for intel-media-driver and ffmpeg
+  - type: rpm-ostree
+    repos:
+      - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+      - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+    install:
+      # Intel VAAPI hardware acceleration packages
+      - intel-media-driver      # iHD driver for Intel Gen 8+ (Broadwell and newer)
+      - libva                   # VAAPI core library
+      - libva-utils             # vainfo and debugging tools
+      - ffmpeg                  # Hardware-accelerated encoding/decoding
+      - gstreamer1-vaapi        # GStreamer VAAPI plugin
+
+  # Copy system configuration files (includes /etc/profile.d/intel-vaapi.sh)
   - type: files
     files:
       - source: system
         destination: /
 
+  # Enable systemd units for WireGuard and NFS mounts
   - type: systemd
     system:
       enabled:
