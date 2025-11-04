@@ -76,7 +76,7 @@ cat "$TEMPLATE_FILE" | \
             desktop_done = 1
             next
         }
-        if (line ~ /^PresharedKey=\[PRE SHARED KEY\]/ && !desktop_psk_done) {
+        if (line ~ /^PresharedKey=\[PRESHARED KEY\]/ && !desktop_psk_done) {
             print "PresharedKey=" desktop_psk
             desktop_psk_done = 1
             next
@@ -106,7 +106,7 @@ cat "$TEMPLATE_FILE" | \
             laptop_done = 1
             next
         }
-        if (line ~ /^PresharedKey=\[PRE SHARED KEY\]/ && iphone_psk_done && !laptop_psk_done) {
+        if (line ~ /^PresharedKey=\[PRESHARED KEY\]/ && iphone_psk_done && !laptop_psk_done) {
             print "PresharedKey=" laptop_psk
             laptop_psk_done = 1
             next

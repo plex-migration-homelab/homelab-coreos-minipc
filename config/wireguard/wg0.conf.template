@@ -13,7 +13,7 @@ PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACC
 [Peer]
 #LAN-Desktop-Justin
 PublicKey=[PUBLIC KEY]
-PresharedKey=[PRE SHARED KEY]
+PresharedKey=[PRESHARED KEY]
 AllowedIPs=10.253.0.6/32
 PersistentKeepalive=30
 
@@ -34,6 +34,6 @@ PersistentKeepalive=30
 [Peer]
 #Framework Laptop Justin
 PublicKey=[PUBLIC KEY]
-PresharedKey=[PRE SHARED KEY]
+PresharedKey=[PRESHARED KEY]
 AllowedIPs=10.253.0.11/32
 PersistentKeepalive=30
