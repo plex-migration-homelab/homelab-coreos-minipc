@@ -7,6 +7,8 @@ cosign.private
 
 # Sensitive configuration files
 config/wireguard/wg0.conf
+config/wireguard/.env
+config/wireguard/keys/
 config/wireguard/*.key
 *.key
 *.pem
