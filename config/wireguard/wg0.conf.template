@@ -29,6 +29,7 @@ PersistentKeepalive=30
 PublicKey=[PUBLIC KEY]
 PresharedKey=[PRESHARED KEY]
 AllowedIPs=10.253.0.9/32
+PersistentKeepalive=30
 
 [Peer]
 #Framework Laptop Justin
