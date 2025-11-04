@@ -1,38 +1,44 @@
-# WireGuard VPN Configuration for NAB9 Mini PC
-# This connects the mini PC to the DigitalOcean VPS for secure tunneling
-# IMPORTANT: Replace placeholders with actual values before deployment
+# Local server configuration
 
 [Interface]
-# NAB9 Mini PC configuration
-Address = 10.99.0.2/24
-PrivateKey = YOUR_PRIVATE_KEY_HERE
-ListenPort = 51820
-
-# DNS through the tunnel (optional - use VPS or local DNS)
-# DNS = 1.1.1.1, 1.0.0.1
-
-# Routing table (optional - for policy-based routing)
-# Table = auto
-
-# MTU optimization for better performance
-MTU = 1420
-
-# PostUp/PreDown scripts for firewall rules
-PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PreDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+#Remote Tunnel
+PrivateKey=[PRIVATE KEY]
+Address=10.253.0.1
+ListenPort=51820
+PostUp=logger -t wireguard 'Tunnel WireGuard-wg0 started';/usr/local/emhttp/webGui/scripts/update_services
+PostUp=iptables -t nat -A POSTROUTING -s 10.253.0.0/24 -o br0 -j MASQUERADE;iptables -t nat -A POSTROUTING -s 10.253.0.0/24 -o vhost0 -j MASQUERADE
+PostDown=logger -t wireguard 'Tunnel WireGuard-wg0 stopped';/usr/local/emhttp/webGui/scripts/update_services
+PostDown=iptables -t nat -D POSTROUTING -s 10.253.0.0/24 -o br0 -j MASQUERADE;iptables -t nat -D POSTROUTING -s 10.253.0.0/24 -o vhost0 -j MASQUERADE
+PostUp=ip -4 route flush table 200
+PostUp=ip -4 route add default via 10.253.0.1 dev wg0 table 200
+PostUp=ip -4 route add 192.168.7.0/24 via 192.168.7.1 dev br0 table 200
+PostDown=ip -4 route flush table 200
+PostDown=ip -4 route add unreachable default table 200
+PostDown=ip -4 route add 192.168.7.0/24 via 192.168.7.1 dev br0 table 200
 
 [Peer]
-# DigitalOcean VPS endpoint
-PublicKey = VPS_PUBLIC_KEY_HERE
-PresharedKey = PRESHARED_KEY_HERE
+#LAN-Desktop-Justin
+PublicKey=[PUBLIC KEY]
+PresharedKey=[PRE SHARED KEY]
+AllowedIPs=10.253.0.6
+PersistentKeepalive=30
 
-# VPS endpoint address and port
-Endpoint = YOUR_VPS_IP:51820
+[Peer]
+#VPS
+PublicKey=[PUBLIC KEY]
+PresharedKey=[PRESHARED KEY]
+AllowedIPs=10.253.0.8
+PersistentKeepalive=30
 
-# Allowed IPs - what traffic goes through the tunnel
-# For full tunnel: AllowedIPs = 0.0.0.0/0, ::/0
-# For split tunnel (recommended): AllowedIPs = 10.99.0.0/24
-AllowedIPs = 10.99.0.0/24
+[Peer]
+#iPhone
+PublicKey=[PUBLIC KEY]
+PresharedKey=[PRESHARED KEY]
+AllowedIPs=10.253.0.9
 
-# Keep connection alive (important for NAT traversal)
-PersistentKeepalive = 25
+[Peer]
+#Framework Laptop Justin
+PublicKey=[PUBLIC KEY]
+PresharedKey=[PRE SHARED KEY]
+AllowedIPs=10.253.0.11
+PersistentKeepalive=30
