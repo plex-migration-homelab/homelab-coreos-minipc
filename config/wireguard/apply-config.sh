@@ -117,7 +117,7 @@ replace_placeholder "[IPHONE_PRESHARED_KEY]" "$WG_PEER_IPHONE_PRESHARED_KEY"
 replace_placeholder "[LAPTOP_PUBLIC_KEY]" "$WG_PEER_LAPTOP_PUBLIC_KEY"
 replace_placeholder "[LAPTOP_PRESHARED_KEY]" "$WG_PEER_LAPTOP_PRESHARED_KEY"
 
-if grep -Eo '\[[A-Z_]+\]' "$TEMP_FILE" | grep -q "^\["; then
+if grep -Eo '\[[A-Z_]*KEY[A-Z_]*\]' "$TEMP_FILE" | grep -q "^\["; then
     echo -e "${RED}Error: Unresolved placeholders remain after substitution${NC}" >&2
     rm -f "$TEMP_FILE"
     exit 1
