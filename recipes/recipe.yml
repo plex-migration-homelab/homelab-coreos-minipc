@@ -9,9 +9,11 @@ image-version: latest
 modules:
   # Enable RPM Fusion repos for intel-media-driver and ffmpeg
   - type: rpm-ostree
-    repos:
-      - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
-      - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+    install:
+      - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-%OS_VERSION%.noarch.rpm
+      - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-%OS_VERSION%.noarch.rpm
+
+  - type: rpm-ostree
     install:
       # Intel VAAPI hardware acceleration packages
       - intel-media-driver      # iHD driver for Intel Gen 8+ (Broadwell and newer)
