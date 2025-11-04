@@ -3,7 +3,7 @@
 [Interface]
 #Remote Tunnel
 PrivateKey=[PRIVATE KEY]
-Address=10.253.0.1
+Address=10.253.0.1/24
 ListenPort=51820
 PostUp=logger -t wireguard 'Tunnel WireGuard-wg0 started';/usr/local/emhttp/webGui/scripts/update_services
 PostUp=iptables -t nat -A POSTROUTING -s 10.253.0.0/24 -o br0 -j MASQUERADE;iptables -t nat -A POSTROUTING -s 10.253.0.0/24 -o vhost0 -j MASQUERADE
