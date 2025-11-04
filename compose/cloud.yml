@@ -35,11 +35,11 @@ services:
       # User and timezone
       - TZ=${TZ:-America/New_York}
     volumes:
-      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:Z
-      - /mnt/nas-nextcloud/data:/var/www/html/data:Z
-      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:Z
-      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:Z
-      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:Z
+      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:z
+      - /mnt/nas-nextcloud/data:/var/www/html/data:z
+      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:z
+      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:z
+      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:z
     ports:
       - "8080:80"
     networks:
@@ -59,11 +59,11 @@ services:
     environment:
       - TZ=${TZ:-America/New_York}
     volumes:
-      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:Z
-      - /mnt/nas-nextcloud/data:/var/www/html/data:Z
-      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:Z
-      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:Z
-      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:Z
+      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:z
+      - /mnt/nas-nextcloud/data:/var/www/html/data:z
+      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:z
+      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:z
+      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:z
     networks:
       - cloud
     labels:
