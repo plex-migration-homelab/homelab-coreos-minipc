@@ -122,6 +122,15 @@ After these two automatic reboots, your system will be running the fully signed 
 
 **Important**: This means your system will reboot **twice automatically** during initial setup. This is normal and expected behavior.
 
+### Disabling the Automatic Rebase Units
+
+If you generate an ISO directly from the published image (e.g. `sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso image ghcr.io/zoro11031/homelab-coreos-minipc`) and embed this Ignition file before flashing, the machine already boots into the intended image on first launch. In that case the autorebase services are redundant and will only introduce two extra reboots. Remove them before running `transpile.sh`:
+
+1. Delete the `storage.directories` entry that creates `/etc/ucore-autorebase`.
+2. Remove both `ucore-unsigned-autorebase.service` and `ucore-signed-autorebase.service` from the `systemd.units` list.
+
+With those sections removed the Ignition file will leave the system as-is, avoiding unnecessary reboots while keeping the rest of your configuration intact.
+
 ## Advanced Configuration
 
 You can extend the Butane file to include:
