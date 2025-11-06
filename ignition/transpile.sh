@@ -39,23 +39,20 @@ if [ ! -f "$BUTANE_FILE" ]; then
 fi
 
 # Validate that the file has been customized
-if grep -q "YOUR_PASSWORD_HASH" "$BUTANE_FILE"; then
+if grep -q "YOUR_GOOD_PASSWORD_HASH_HERE" "$BUTANE_FILE"; then
     echo "Error: Please customize your Butane file first!"
     echo ""
-    echo "You need to replace 'YOUR_PASSWORD_HASH' with an actual password hash."
+    echo "You need to replace 'YOUR_GOOD_PASSWORD_HASH_HERE' with an actual password hash."
     echo "Run './generate-password-hash.sh' to generate a password hash."
     exit 1
 fi
 
-if grep -q "ssh-ed25519 AAAAC3... user@hostname" "$BUTANE_FILE"; then
-    echo "Warning: It looks like you haven't replaced the example SSH key."
-    echo "Please add your actual SSH public key to the Butane file."
+if grep -q "YOUR_SSH_PUB_KEY_HERE" "$BUTANE_FILE"; then
+    echo "Error: Please customize your Butane file first!"
     echo ""
-    read -p "Continue anyway? (y/N) " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    echo "You need to replace 'YOUR_SSH_PUB_KEY_HERE' with your actual SSH public key."
+    echo "Get your key with: cat ~/.ssh/id_ed25519.pub"
+    exit 1
 fi
 
 echo "Transpiling $BUTANE_FILE to $IGNITION_FILE..."

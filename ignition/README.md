@@ -33,7 +33,7 @@ This will output a hash like:
 $y$j9T$abc123...xyz789
 ```
 
-Copy this hash and replace `YOUR_PASSWORD_HASH` in `config.bu`.
+Copy this hash and replace `YOUR_GOOD_PASSWORD_HASH_HERE` in `config.bu`.
 
 ### 3. Add Your SSH Public Key
 
