@@ -14,11 +14,7 @@ modules:
     files:
       - source: system
         destination: /
-  # Copy dotfiles directory to core user's home
-  - type: files
-    files:
-      - source: dotfiles
-        destination: /var/home/core/.dotfiles
+
   - from-file: systemd.yml
 
   - type: signing

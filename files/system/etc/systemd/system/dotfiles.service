@@ -1,0 +1,11 @@
+[Unit]
+Description=Copy dotfiles to core user's home
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/share/setup-scripts/dotfiles.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
