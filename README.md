@@ -224,25 +224,48 @@ See [`ignition/README.md`](ignition/README.md#disabling-the-automatic-rebase-uni
 
 ### Option A: Install via Fedora CoreOS Live ISO (Recommended)
 
-1. Prepare your Ignition file (`config.ign`) as shown above.
+1. **Prepare your Ignition file** (`config.ign`) as shown in the Ignition Setup section above.
 
-2. Download a **Fedora CoreOS live ISO** (not a uCore ISO):
-   [https://fedoraproject.org/coreos/download/](https://fedoraproject.org/coreos/download/)
+2. **Download the latest Fedora CoreOS ISO**:
 
-3. Boot from the ISO and install uCore with Ignition:
+   From the [download page](https://fedoraproject.org/coreos/download/), or using `podman`:
    ```bash
-   sudo coreos-installer install /dev/sdX \
-     --image-url https://github.com/ublue-os/ucore/releases/download/latest/ucore-x86_64.raw.xz \
-     --ignition-file ignition/config.ign
+   podman run --security-opt label=disable --pull=always --rm -v .:/data -w /data \
+       quay.io/coreos/coreos-installer:release download -s stable -p metal -f iso
    ```
-   Replace `/dev/sdX` with your target drive (e.g. `/dev/nvme0n1`).
 
-4. On first boot:
-   - The system applies your Ignition configuration.
-   - Then it automatically rebases twice:
-     - First to the **unsigned** OCI image.
-     - Then to the **signed** OCI image.
-   - After both reboots, it will be running your final, signed `homelab-coreos-minipc` image.
+   **Note:** This uses `coreos-installer` as a tool to download the ISO. The live ISO can boot in either legacy BIOS or UEFI mode.
+
+3. **Burn the ISO to disk**:
+   - **Linux/macOS**: Use `dd`
+   - **Windows**: Use [Rufus](https://rufus.ie/) in "DD Image" mode
+
+4. **Boot from the ISO** on your target system:
+
+   The ISO brings up a fully functional FCOS system from memory without using disk storage. Once booted, you'll have access to a bash command prompt.
+
+5. **Install to disk with your Ignition file**:
+   ```bash
+   sudo coreos-installer install /dev/sda \
+       --ignition-file /path/to/config.ign
+   ```
+
+   Replace `/dev/sda` with your target drive (e.g. `/dev/nvme0n1`).
+
+   Check `coreos-installer install --help` for additional options.
+
+6. **Reboot the system**:
+   ```bash
+   sudo reboot
+   ```
+
+7. **First boot process**:
+   - Ignition ingests the configuration file and provisions the system
+   - The system applies your Ignition configuration (user, SSH keys, etc.)
+   - The automatic rebase services activate and reboot the system **twice**:
+     - First reboot: transitions to the **unsigned** OCI image
+     - Second reboot: transitions to the **signed** OCI image
+   - After both reboots, the system will be running your final, signed `homelab-coreos-minipc` image
 
 ---
 
