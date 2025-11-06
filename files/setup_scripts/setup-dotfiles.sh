@@ -37,7 +37,10 @@ else
     for dir in */; do
         if [ -d "$dir" ]; then
             echo -e "${YELLOW}Stowing ${dir%/}...${NC}"
-            stow -v -t "${USER_HOME}" "${dir%/}" || true
+            if ! stow -v --restow -t "${USER_HOME}" "${dir%/}"; then
+                echo -e "${YELLOW}Error: GNU Stow failed for ${dir%/}. Please resolve the conflict and rerun the script.${NC}"
+                exit 1
+            fi
         fi
     done
 fi
