@@ -104,34 +104,32 @@ require("lazy").setup({
 
       -- LSP setup using new API
       local capabilities = require("cmp_nvim_lsp").default_capabilities()
+      local lspconfig = require("lspconfig")
 
       -- Python
-      vim.lsp.config.pyright = {
+      lspconfig.pyright.setup({
         cmd = { "pyright-langserver", "--stdio" },
         filetypes = { "python" },
         root_markers = { "pyproject.toml", "setup.py", "requirements.txt", ".git" },
         capabilities = capabilities,
-      }
-      vim.lsp.enable("pyright")
-      
+      })
+
       -- Bash
-      vim.lsp.config.bashls = {
+      lspconfig.bashls.setup({
         cmd = { "bash-language-server", "start" },
         filetypes = { "sh", "bash" },
         capabilities = capabilities,
-      }
-      vim.lsp.enable("bashls")
-      
+      })
+
       -- YAML
-      vim.lsp.config.yamlls = {
+      lspconfig.yamlls.setup({
         cmd = { "yaml-language-server", "--stdio" },
         filetypes = { "yaml", "yml" },
         capabilities = capabilities,
-      }
-      vim.lsp.enable("yamlls")
-      
+      })
+
       -- Lua
-      vim.lsp.config.lua_ls = {
+      lspconfig.lua_ls.setup({
         cmd = { "lua-language-server" },
         filetypes = { "lua" },
         capabilities = capabilities,
@@ -140,8 +138,7 @@ require("lazy").setup({
             diagnostics = { globals = { "vim" } },
           },
         },
-      }
-      vim.lsp.enable("lua_ls")
+      })
     end,
   },
 
