@@ -1,2 +1,2 @@
-# This directory will be copied to /var/home/core/.dotfiles
+# This directory will be copied to /var/home/core
 # Place your dotfiles here before building the image
