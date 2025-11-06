@@ -270,29 +270,12 @@ If you want a standalone ISO that already contains your custom image:
 
 ---
 
-### Option C: Rebase Manually (Alternate Path)
-
-If you are already running Fedora Atomic (Silverblue, Kinoite, or uBlue) and don't want to reinstall:
-
-```bash
-rpm-ostree rebase ostree-unverified-registry:ghcr.io/zoro11031/homelab-coreos-minipc:latest
-systemctl reboot
-# After reboot, finalize to signed image
-rpm-ostree rebase ostree-image-signed:docker://ghcr.io/zoro11031/homelab-coreos-minipc:latest
-systemctl reboot
-```
-
-This path skips Ignition entirely and is for converting an existing installation.
-
----
-
 ### Summary of Behavior
 
 | Scenario                   | Ignition Used | Automatic Rebase | Manual Steps           |
 |----------------------------|---------------|------------------|------------------------|
 | Fresh install via FCOS ISO | ✅            | ✅               | None — fully automated |
 | Custom uCore ISO install   | ❌            | N/A              | Already final image    |
-| Existing Fedora Atomic     | ❌            | ❌               | Manual rebase required |
 
 ---
 
