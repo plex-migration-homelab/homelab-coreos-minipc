@@ -393,7 +393,7 @@ The image includes zsh and a dotfiles directory:
 - **Dotfiles Directory**: An empty `.dotfiles` directory is created at `/var/home/core/.dotfiles`
   - Place your dotfiles in `files/dotfiles/` before building the image
   - The directory will be copied to `/var/home/core/.dotfiles` during the build
-  - You can organize your configuration files (`.zshrc`, `.vimrc`, `.tmuxrc`, etc.) as needed
+  - You can organize your configuration files (`.zshrc`, `.vimrc`, `.tmux.conf`, etc.) as needed
   - Consider using GNU Stow or a similar tool to manage your dotfiles
 
 To add your dotfiles to the image:
