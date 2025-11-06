@@ -1,0 +1,24 @@
+variant: fcos
+version: 1.5.0
+passwd:
+  users:
+    - name: core
+      # Generate password hash with: mkpasswd --method=yescrypt
+      # Replace YOUR_PASSWORD_HASH with the generated hash
+      password_hash: "YOUR_PASSWORD_HASH"
+      ssh_authorized_keys:
+        # Replace with your actual SSH public key(s)
+        - "ssh-ed25519 AAAAC3... user@hostname"
+      # Optionally make the core user a sudoer without password
+      groups:
+        - wheel
+        - sudo
+        - docker
+
+# Optional: Set hostname
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: homelab-minipc

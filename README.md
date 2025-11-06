@@ -176,6 +176,42 @@ These mounts are used by Plex, Jellyfin, Nextcloud, Immich, etc.
 
 ---
 
+## Ignition Setup (First-Time Installation)
+
+**All CoreOS installations require an Ignition file** to configure the system on first boot. At minimum, you must set a password and SSH key for the default `core` user.
+
+### Quick Setup
+
+1. Navigate to the `ignition/` directory:
+   ```bash
+   cd ignition
+   ```
+
+2. Copy the template:
+   ```bash
+   cp config.bu.template config.bu
+   ```
+
+3. Generate a password hash:
+   ```bash
+   ./generate-password-hash.sh
+   ```
+
+4. Edit `config.bu` and:
+   - Replace `YOUR_PASSWORD_HASH` with the generated hash
+   - Replace the example SSH key with your actual public key (`~/.ssh/id_ed25519.pub`)
+
+5. Transpile to Ignition JSON:
+   ```bash
+   ./transpile.sh config.bu config.ign
+   ```
+
+6. Use the generated `config.ign` file during installation (see methods below)
+
+For detailed instructions, see [`ignition/README.md`](ignition/README.md).
+
+---
+
 ## Installation
 
 ### Rebase from Existing Fedora Atomic
@@ -192,18 +228,27 @@ These mounts are used by Plex, Jellyfin, Nextcloud, Immich, etc.
 
 ### Generate and Install from ISO
 
-Generate the ISO:
+1. First, prepare your Ignition file (see **Ignition Setup** section above)
 
-```bash
-# Generate ISO from a built and published remote image
-sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso image ghcr.io/zoro11031/homelab-coreos-minipc
+2. Generate the ISO:
 
-# Build image and generate ISO from a local recipe
-sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso recipe recipe.yml
-```
+   ```bash
+   # Generate ISO from a built and published remote image
+   sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso image ghcr.io/zoro11031/homelab-coreos-minipc
 
-Flash the ISO onto a USB drive (Fedora Media Writer is recommended) and boot it.
-- The ISO file should be inside your working directory (wherever you ran the command).
+   # Build image and generate ISO from a local recipe
+   sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso recipe recipe.yml
+   ```
+
+3. Embed your Ignition config into the ISO:
+
+   ```bash
+   coreos-installer iso ignition embed -i ignition/config.ign homelab-coreos-minipc.iso
+   ```
+
+4. Flash the ISO onto a USB drive (Fedora Media Writer is recommended) and boot it.
+   - The ISO file should be inside your working directory (wherever you ran the command)
+   - On first boot, the system will be automatically configured using the embedded Ignition file
 
 ---
 

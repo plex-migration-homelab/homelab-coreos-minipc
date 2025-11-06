@@ -40,3 +40,8 @@ compose/.env
 # System files
 Thumbs.db
 .directory
+
+# Ignition configuration files (exclude actual configs, keep templates)
+ignition/*.bu
+ignition/*.ign
+!ignition/*.template
