@@ -98,7 +98,7 @@ For virtualization platforms (libvirt, QEMU, etc.), provide the Ignition file as
 The included `config.bu.template` configures:
 
 1. **User Setup**: Sets password and SSH key for the `core` user
-2. **Groups**: Adds `core` to `wheel`, `sudo`, and `docker` groups for elevated privileges
+2. **Groups**: Adds `core` to `wheel` and `docker` groups for elevated privileges
 3. **Hostname**: Sets the system hostname to `homelab-minipc`
 4. **Automatic Rebase**: Sets up systemd services for automatic rebasing to the custom image
 
