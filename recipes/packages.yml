@@ -5,6 +5,7 @@ modules:
     install:
       - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-%OS_VERSION%.noarch.rpm
       - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-%OS_VERSION%.noarch.rpm
+      - https://copr.fedorainfracloud.org/coprs/scottames/ghostty/repo/fedora-%OS_VERSION%/scottames-ghostty-fedora-%OS_VERSION%.repo
 
   - type: rpm-ostree
     install:
@@ -24,6 +25,7 @@ modules:
       - fzf                     # Command-line fuzzy finder
       - zoxide                  # Smarter cd command
       - kitty                   # Feature-rich GPU terminal emulator
+      - ghostty                 # Modern GPU-accelerated terminal emulator
       - ripgrep                 # Fast recursive search utility
       - fd-find                 # Simple, fast alternative to find
       - bat                     # cat clone with syntax highlighting
