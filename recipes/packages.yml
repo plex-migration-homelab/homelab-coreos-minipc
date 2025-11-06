@@ -3,10 +3,12 @@
 modules:
   - type: rpm-ostree
     install:
-      - https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-%OS_VERSION%.noarch.rpm
-      - https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-%OS_VERSION%.noarch.rpm
+      - https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-%OS_VERSION%.noarch.rpm
+      - https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-%OS_VERSION%.noarch.rpm
 
   - type: rpm-ostree
+    repos:
+      - https://copr.fedorainfracloud.org/coprs/scottames/ghostty/repo/fedora-%OS_VERSION%/scottames-ghostty-fedora-%OS_VERSION%.repo
     install:
       # Intel VAAPI hardware acceleration packages
       - intel-media-driver      # iHD driver for Intel Gen 8+ (Broadwell and newer)
@@ -19,3 +21,23 @@ modules:
       - zsh                     # Z shell
       - git                     # Required for dotfiles setup
       - stow                    # GNU Stow for dotfiles management
+      - neovim                  # Editor expected by dotfiles
+      - vim                     # Traditional Vim editor for compatibility
+      - fzf                     # Command-line fuzzy finder
+      - zoxide                  # Smarter cd command
+      - kitty                   # Feature-rich GPU terminal emulator
+      - ghostty                 # Modern GPU-accelerated terminal emulator
+      - ripgrep                 # Fast recursive search utility
+      - fd-find                 # Simple, fast alternative to find
+      - bat                     # cat clone with syntax highlighting
+      - tmux                    # Terminal multiplexer for sessions
+      - htop                    # Interactive process viewer
+      - tree                    # Directory tree listing
+
+      # Core CLI productivity tools
+      - jq                      # JSON processor
+      - rsync                   # Fast incremental file transfer
+      - wget                    # Network downloader
+      - curl                    # Data transfer tool supporting multiple protocols
+      - unzip                   # Zip archive extraction utility
+      - zip                     # Create Zip archives
