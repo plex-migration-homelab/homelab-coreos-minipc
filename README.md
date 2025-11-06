@@ -210,6 +210,8 @@ These mounts are used by Plex, Jellyfin, Nextcloud, Immich, etc.
 
 **Note**: The Ignition configuration includes automatic rebase services that will reboot your system **twice** after first boot to transition from the base CoreOS image to your custom signed image. This is normal and expected.
 
+If you plan to generate a uCore ISO directly from the published container image (see `bluebuild generate-iso` instructions below) and embed this Ignition file into that ISO, remove the auto-rebase units before transpiling. In that workflow the installed system already boots into the target image, so keeping the rebase services will cause unnecessary extra reboots. See [`ignition/README.md`](ignition/README.md#disabling-the-automatic-rebase-units) for the exact edits.
+
 For detailed instructions, see [`ignition/README.md`](ignition/README.md).
 
 ---
