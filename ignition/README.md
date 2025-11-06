@@ -100,6 +100,27 @@ The included `config.bu.template` configures:
 1. **User Setup**: Sets password and SSH key for the `core` user
 2. **Groups**: Adds `core` to `wheel`, `sudo`, and `docker` groups for elevated privileges
 3. **Hostname**: Sets the system hostname to `homelab-minipc`
+4. **Automatic Rebase**: Sets up systemd services for automatic rebasing to the custom image
+
+### Automatic Rebase Workflow
+
+The configuration includes two systemd services that handle automatic rebasing to your custom `homelab-coreos-minipc` image:
+
+**First Boot (Unsigned Rebase)**
+- The `ucore-unsigned-autorebase.service` runs on first boot
+- Rebases the system to `ostree-unverified-registry:ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+- Creates a marker file at `/etc/ucore-autorebase/unverified`
+- Disables itself and reboots
+
+**Second Boot (Signed Rebase)**
+- The `ucore-signed-autorebase.service` runs after the first reboot
+- Rebases the system to the signed image `ostree-image-signed:docker://ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+- Creates a marker file at `/etc/ucore-autorebase/signed`
+- Disables itself and reboots
+
+After these two automatic reboots, your system will be running the fully signed custom image and ready for use.
+
+**Important**: This means your system will reboot **twice automatically** during initial setup. This is normal and expected behavior.
 
 ## Advanced Configuration
 

@@ -208,6 +208,8 @@ These mounts are used by Plex, Jellyfin, Nextcloud, Immich, etc.
 
 6. Use the generated `config.ign` file during installation (see methods below)
 
+**Note**: The Ignition configuration includes automatic rebase services that will reboot your system **twice** after first boot to transition from the base CoreOS image to your custom signed image. This is normal and expected.
+
 For detailed instructions, see [`ignition/README.md`](ignition/README.md).
 
 ---
