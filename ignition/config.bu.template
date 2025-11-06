@@ -12,7 +12,6 @@ passwd:
       password_hash: YOUR_GOOD_PASSWORD_HASH_HERE
       groups:
         - wheel
-        - sudo
         - docker
 storage:
   directories:
