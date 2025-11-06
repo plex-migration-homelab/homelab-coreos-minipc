@@ -178,81 +178,115 @@ These mounts are used by Plex, Jellyfin, Nextcloud, Immich, etc.
 
 ## Ignition Setup (First-Time Installation)
 
-**All CoreOS installations require an Ignition file** to configure the system on first boot. At minimum, you must set a password and SSH key for the default `core` user.
+Every CoreOS-family install expects an Ignition configuration on the very first boot.
+Without one, you cannot set a password or SSH key for the default `core` user.
+Follow the steps below **before** you boot any installer media.
+
+### Prerequisites
+
+- [`butane`](https://coreos.github.io/butane/) in your `$PATH` (used by `transpile.sh`)
+- `mkpasswd` (from the `whois` package on Debian/Ubuntu) to generate a password hash
+- An SSH key pair on the machine you're using to prepare the config
 
 ### Quick Setup
 
-1. Navigate to the `ignition/` directory:
+1. Navigate to the Ignition helpers and copy the template:
    ```bash
    cd ignition
-   ```
-
-2. Copy the template:
-   ```bash
    cp config.bu.template config.bu
    ```
 
-3. Generate a password hash:
+2. Generate a password hash for the `core` user:
    ```bash
    ./generate-password-hash.sh
    ```
+   Copy the printed yescrypt hash.
 
-4. Edit `config.bu` and:
-   - Replace `YOUR_GOOD_PASSWORD_HASH_HERE` with the generated hash
-   - Replace `YOUR_SSH_PUB_KEY_HERE` with your actual public key (`~/.ssh/id_ed25519.pub`)
+3. Edit `config.bu` and replace the placeholders:
+   - `YOUR_GOOD_PASSWORD_HASH_HERE` → the hash from step 2
+   - `YOUR_SSH_PUB_KEY_HERE` → your SSH public key (`~/.ssh/id_ed25519.pub`, etc.)
+   - Adjust hostname, groups, or additional settings if needed
 
-5. Transpile to Ignition JSON:
+4. Convert the Butane file to Ignition JSON:
    ```bash
    ./transpile.sh config.bu config.ign
    ```
+   The script validates that you removed the placeholders and writes `config.ign`.
 
-6. Use the generated `config.ign` file during installation (see methods below)
+5. Keep `config.ign` handy for the installation method you plan to use (see below).
 
-**Note**: The Ignition configuration includes automatic rebase services that will reboot your system **twice** after first boot to transition from the base CoreOS image to your custom signed image. This is normal and expected.
+**Automatic rebase behavior:** the bundled Butane template adds systemd units that move the host from stock Fedora CoreOS to the signed `ghcr.io/zoro11031/homelab-coreos-minipc:latest` image. Expect **two automatic reboots** after the first boot: one into the unsigned OCI reference and a second into the signed image. This is normal and confirms the autorebase workflow is active.
 
-If you plan to generate a uCore ISO directly from the published container image (see `bluebuild generate-iso` instructions below) and embed this Ignition file into that ISO, remove the auto-rebase units before transpiling. In that workflow the installed system already boots into the target image, so keeping the rebase services will cause unnecessary extra reboots. See [`ignition/README.md`](ignition/README.md#disabling-the-automatic-rebase-units) for the exact edits.
-
-For detailed instructions, see [`ignition/README.md`](ignition/README.md).
+Using a custom ISO built from the final image (`bluebuild generate-iso ... image ghcr.io/zoro11031/homelab-coreos-minipc`)?
+Remove the autorebase units before running `transpile.sh`; otherwise you will sit through two unnecessary reboots.
+Detailed instructions live in [`ignition/README.md`](ignition/README.md#disabling-the-automatic-rebase-units).
 
 ---
 
 ## Installation
 
-### Rebase from Existing Fedora Atomic
+### Option A: Install via Fedora CoreOS Live ISO (Recommended)
 
-1. Begin from any Fedora Atomic base (Silverblue/Kinoite/uBlue).
-2. Rebase, reboot, then move to the signed image:
+1. **Finish the Ignition steps above** so you have a customized `config.ign`.
 
+2. **Download the latest Fedora CoreOS installer ISO** from the [official site](https://fedoraproject.org/coreos/download/) or with the containerized helper:
    ```bash
-   rpm-ostree rebase ostree-unverified-registry:ghcr.io/zoro11031/homelab-coreos-minipc:latest
-   systemctl reboot
-   rpm-ostree rebase ostree-image-signed:docker://ghcr.io/zoro11031/homelab-coreos-minipc:latest
-   systemctl reboot
+   podman run --security-opt label=disable --pull=always --rm -v "$(pwd)":/data -w /data \
+       quay.io/coreos/coreos-installer:release download -s stable -p metal -f iso
    ```
 
-### Generate and Install from ISO
+3. **Write the ISO to removable media**:
+   - Linux/macOS: `sudo dd if=fedora-coreos.iso of=/dev/sdX bs=4M status=progress oflag=sync`
+   - Windows: flash with [Rufus](https://rufus.ie/) using “DD Image” mode
 
-1. First, prepare your Ignition file (see **Ignition Setup** section above)
+4. **Boot the target machine** from the live ISO and open a shell prompt.
 
-2. Generate the ISO:
-
+5. **Install to disk using your Ignition file** (mounted from USB, fetched via network, or copied into `/root`):
    ```bash
-   # Generate ISO from a built and published remote image
-   sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso image ghcr.io/zoro11031/homelab-coreos-minipc
+   sudo coreos-installer install /dev/sda --ignition-file /path/to/config.ign
+   ```
+   Swap `/dev/sda` for the actual target device (e.g. `/dev/nvme0n1`).
+   Use `--ignition-url` if your config is hosted remotely.
 
-   # Build image and generate ISO from a local recipe
-   sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso recipe recipe.yml
+6. **Reboot** once the installer reports success:
+   ```bash
+   sudo reboot
    ```
 
-3. Embed your Ignition config into the ISO:
+7. **Let the first boot complete**. Ignition provisions the host, then the autorebase services trigger the two expected reboots described above. After the second restart you land on the signed `homelab-coreos-minipc` image.
 
+---
+
+### Option B: Generate a Custom ISO (Advanced Workflow)
+
+If you want a standalone ISO that already contains your custom image:
+
+1. Build or reference your image:
    ```bash
-   coreos-installer iso ignition embed -i ignition/config.ign homelab-coreos-minipc.iso
+   sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso \
+     image ghcr.io/zoro11031/homelab-coreos-minipc
    ```
 
-4. Flash the ISO onto a USB drive (Fedora Media Writer is recommended) and boot it.
-   - The ISO file should be inside your working directory (wherever you ran the command)
-   - On first boot, the system will be automatically configured using the embedded Ignition file
+   Or from a local recipe:
+   ```bash
+   sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso \
+     recipe recipe.yml
+   ```
+
+2. **Do not use `coreos-installer iso ignition embed`** on uCore or uBlue-generated ISOs —
+   they are not CoreOS live ISOs and do not support embedding.
+   Use the installer-based Ignition method from Option A instead.
+
+3. Flash your ISO with Fedora Media Writer, Ventoy, or `dd`, and boot.
+
+---
+
+### Summary of Behavior
+
+| Scenario                   | Ignition Used | Automatic Rebase | Manual Steps           |
+|----------------------------|---------------|------------------|------------------------|
+| Fresh install via FCOS ISO | ✅            | ✅               | None — fully automated |
+| Custom uCore ISO install   | ❌            | N/A              | Already final image    |
 
 ---
 
