@@ -27,7 +27,7 @@ zinit ice depth=1; zinit light romkatv/powerlevel10k
 
 # Determine if fzf can be used safely in the current terminal
 fzf_ready=0
-if command -v fzf >/dev/null 2>&1 && infocmp "$TERM" >/dev/null 2>&1; then
+if command -v fzf >/dev/null && infocmp "$TERM" >/dev/null 2>&1; then
   fzf_ready=1
 fi
 
