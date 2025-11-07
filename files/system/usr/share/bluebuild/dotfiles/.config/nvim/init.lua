@@ -24,7 +24,7 @@ vim.opt.expandtab = true
 vim.opt.termguicolors = true
 
 -- Plugins
-require("lazy").setup({
+local plugins = {
   -- Color scheme
   {
     "folke/tokyonight.nvim",
@@ -54,7 +54,6 @@ require("lazy").setup({
     dependencies = { "nvim-tree/nvim-web-devicons" },
     config = function()
       require("nvim-tree").setup()
-      vim.keymap.set("n", "<leader>e", ":NvimTreeToggle<CR>")
     end,
   },
 
@@ -62,14 +61,9 @@ require("lazy").setup({
   {
     "nvim-telescope/telescope.nvim",
     dependencies = { "nvim-lua/plenary.nvim" },
-    config = function()
-      vim.keymap.set("n", "<leader>ff", "<cmd>Telescope find_files<cr>")
-      vim.keymap.set("n", "<leader>fg", "<cmd>Telescope live_grep<cr>")
-      vim.keymap.set("n", "<leader>fb", "<cmd>Telescope buffers<cr>")
-    end,
   },
 
- -- LSP and autocomplete
+  -- LSP and autocomplete
   {
     "neovim/nvim-lspconfig",
     dependencies = {
@@ -102,51 +96,42 @@ require("lazy").setup({
         },
       })
 
-      -- LSP setup using new API
       local capabilities = require("cmp_nvim_lsp").default_capabilities()
       local lspconfig = require("lspconfig")
 
-      -- Python
-      lspconfig.pyright.setup({
-        cmd = { "pyright-langserver", "--stdio" },
-        filetypes = { "python" },
-        root_markers = { "pyproject.toml", "setup.py", "requirements.txt", ".git" },
-        capabilities = capabilities,
-      })
-
-      -- Bash
-      lspconfig.bashls.setup({
-        cmd = { "bash-language-server", "start" },
-        filetypes = { "sh", "bash" },
-        capabilities = capabilities,
-      })
-
-      -- YAML
-      lspconfig.yamlls.setup({
-        cmd = { "yaml-language-server", "--stdio" },
-        filetypes = { "yaml", "yml" },
-        capabilities = capabilities,
-      })
-
-      -- Lua
-      lspconfig.lua_ls.setup({
-        cmd = { "lua-language-server" },
-        filetypes = { "lua" },
-        capabilities = capabilities,
-        settings = {
-          Lua = {
-            diagnostics = { globals = { "vim" } },
+      local servers = {
+        pyright = {},
+        bashls = {},
+        yamlls = {},
+        lua_ls = {
+          settings = {
+            Lua = {
+              diagnostics = {
+                globals = { "vim" },
+              },
+            },
           },
         },
-      })
+      }
+
+      for server, server_opts in pairs(servers) do
+        local opts = vim.tbl_deep_extend("force", {
+          capabilities = capabilities,
+        }, server_opts)
+        lspconfig[server].setup(opts)
+      end
     end,
   },
 
- -- Auto pairs
+  -- Mini modules for pairs, comments, and statusline
   {
-    "windwp/nvim-autopairs",
-    event = "InsertEnter",
-    config = true,
+    "echasnovski/mini.nvim",
+    version = false,
+    config = function()
+      require("mini.pairs").setup()
+      require("mini.comment").setup()
+      require("mini.statusline").setup()
+    end,
   },
 
   -- Git signs
@@ -154,19 +139,26 @@ require("lazy").setup({
     "lewis6991/gitsigns.nvim",
     config = true,
   },
+}
 
-  -- Status line
-  {
-    "nvim-lualine/lualine.nvim",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    config = function()
-      require("lualine").setup()
-    end,
-  },
+require("lazy").setup(plugins)
 
-  -- Comment plugin
-  {
-    "numToStr/Comment.nvim",
-    config = true,
-  },
-})
+local function map(mode, lhs, rhs, desc)
+  local opts = { desc = desc }
+  vim.keymap.set(mode, lhs, rhs, opts)
+end
+
+local function nmap(lhs, rhs, desc)
+  map("n", lhs, rhs, desc)
+end
+
+nmap("<leader>e", "<cmd>NvimTreeToggle<CR>", "Toggle file explorer")
+nmap("<leader>ff", function()
+  require("telescope.builtin").find_files()
+end, "Find files")
+nmap("<leader>fg", function()
+  require("telescope.builtin").live_grep()
+end, "Live grep")
+nmap("<leader>fb", function()
+  require("telescope.builtin").buffers()
+end, "List buffers")
