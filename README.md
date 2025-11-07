@@ -19,7 +19,7 @@ It pulls media from the file server over NFS and exposes services to the interne
 | Component               | Role                                     |
 |-------------------------|------------------------------------------|
 | uCore (Ublue CoreOS)    | Immutable base OS on the NAB9 mini PC   |
-| Docker / Podman Compose | Orchestrates all app containers         |
+| Podman Compose          | Orchestrates all app containers         |
 | WireGuard               | Connects to DigitalOcean VPS            |
 | Nginx Proxy Manager     | SSL / reverse proxy on VPS side         |
 | Fail2ban + firewall     | Protects exposed media / SSH ports      |
@@ -58,7 +58,7 @@ It pulls media from the file server over NFS and exposes services to the interne
    │                (Frontend / User-Facing)                  │
    │  ┌────────────────────────────────────────────────────┐  │
    │  │                                                    │  │
-   │  │ • Docker Stack                                     │  │
+   │  │ • Podman Stack                                     │  │
    │  │ • Jellyfin (direct exposure)                       │  │
    │  │ • Plex (direct exposure)                           │  │
    │  │ • Overseerr / Wizarr / Nextcloud / Immich (via     │  │
@@ -97,7 +97,7 @@ It pulls media from the file server over NFS and exposes services to the interne
 - Base: https://github.com/ublue-os/ucore
 - Custom image: `ghcr.io/<user>/homelab-coreos-minipc:latest`
 - Built with a BlueBuild recipe that:
-  - Installs `wireguard-tools`, `docker`, `nfs-utils`, `fail2ban`, `zsh`, and Intel VAAPI drivers.
+  - Installs `wireguard-tools`, `podman`, `nfs-utils`, `fail2ban`, `zsh`, and Intel VAAPI drivers.
   - Layers `/etc/wireguard/wg0.conf` (template) and systemd units.
   - Declares NFS mounts and a Compose service to start the stack at boot.
   - Copies an empty `.dotfiles` directory to the core user's home where you can place your dotfiles.
@@ -361,7 +361,7 @@ The `export-peer-configs.sh` script will:
 
 **Important**: Update the network interface in `wg0.conf.template` if your system doesn't use `eth0`. Common alternatives: `enp1s0`, `eno1`, etc.
 
-### 2. Configure Docker Compose
+### 2. Configure Podman Compose
 
 ```bash
 cp compose/.env.example compose/.env
@@ -376,7 +376,7 @@ Update NFS mount IPs in `files/system/etc/systemd/system/*.mount` to match your 
 
 ```bash
 cd compose
-docker compose -f media.yml -f web.yml -f cloud.yml up -d
+podman compose -f media.yml -f web.yml -f cloud.yml up -d
 ```
 
 ## Network
