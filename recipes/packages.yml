@@ -32,7 +32,12 @@ modules:
       - btop
       - make
       - unzip
-      - gcc
       - ripgrep
       - fd-find
+  # Install gcc-c++ separately using dnf with allow-erasing to handle base library conflicts
+  - type: dnf
+    install:
+      allow-erasing: true
+      packages:
+        - gcc-c++
 
