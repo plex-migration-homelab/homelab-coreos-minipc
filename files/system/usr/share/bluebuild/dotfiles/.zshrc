@@ -5,6 +5,17 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
+# Ensure a usable terminfo entry before plugins depend on it.
+if ! infocmp "${TERM:-}" >/dev/null 2>&1; then
+  fallback_term="xterm-256color"
+  previous_term="${TERM:-unknown}"
+  export TERM="$fallback_term"
+  [[ -z "${COLORTERM:-}" ]] && export COLORTERM="truecolor"
+  printf 'zsh: warning: terminal "%s" not recognized; defaulting to %s\n' \
+    "$previous_term" "$fallback_term" >&2
+fi
+unset -v fallback_term previous_term
+
 if [[ -f "/opt/homebrew/bin/brew" ]]; then
   # If you're using macOS, you'll want this enabled
   eval "$(/opt/homebrew/bin/brew shellenv)"
