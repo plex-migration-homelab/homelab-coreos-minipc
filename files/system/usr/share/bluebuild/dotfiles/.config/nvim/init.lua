@@ -41,6 +41,7 @@ MiniDeps.setup({ path = { package = vim.fn.stdpath("data") .. "/site/pack/deps" 
 local add = MiniDeps.add
 add("echasnovski/mini.nvim")
 add("lewis6991/gitsigns.nvim")
+add("neovim/nvim-lspconfig")
 
 -- Mini modules
 require("mini.pairs").setup()
@@ -66,9 +67,8 @@ vim.api.nvim_create_autocmd("LspAttach", {
   end,
 })
 
--- Configure LSP servers using vim.lsp.config (nvim 0.11+)
--- Load lspconfig plugin first, then use the new vim.lsp.config API
-local lspconfig = vim.lsp.config
+-- Configure LSP servers using nvim-lspconfig
+local lspconfig = require("lspconfig")
 for _, server in ipairs({ "bashls", "pyright", "yamlls", "lua_ls" }) do
   local opts = {}
   if server == "lua_ls" then
