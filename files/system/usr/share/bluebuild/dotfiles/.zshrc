@@ -35,7 +35,7 @@ source "${ZINIT_HOME}/zinit.zsh"
 
 # Create completions directory if it doesn't exist
 # This prevents symlink errors when zinit installs completion files
-mkdir -p "${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/completions"
+[[ -d "${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/completions" ]] || mkdir -p "${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/completions"
 
 # Add in Powerlevel10k
 zinit ice depth=1; zinit light romkatv/powerlevel10k
