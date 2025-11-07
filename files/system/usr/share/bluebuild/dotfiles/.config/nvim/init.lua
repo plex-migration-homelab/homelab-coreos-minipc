@@ -69,7 +69,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
 -- Configure LSP servers using vim.lsp.config (nvim 0.11+)
 -- Load lspconfig plugin first, then use the new vim.lsp.config API
-require('lspconfig')
 local lspconfig = vim.lsp.config
 for _, server in ipairs({ "bashls", "pyright", "yamlls", "lua_ls" }) do
   lspconfig[server].setup(server == "lua_ls" and {
