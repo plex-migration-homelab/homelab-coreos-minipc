@@ -33,4 +33,6 @@ modules:
       - make
       - unzip
       - gcc
+      - ripgrep
+      - fd-find
 
