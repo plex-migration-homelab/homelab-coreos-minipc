@@ -10,7 +10,7 @@ if ! infocmp "${TERM:-}" >/dev/null 2>&1; then
   fallback_term="xterm-256color"
   previous_term="${TERM:-unknown}"
   export TERM="$fallback_term"
-  [[ -z "${COLORTERM:-}" ]] && export COLORTERM="truecolor"
+  # Do not set COLORTERM; let applications detect color capabilities via TERM.
   printf 'zsh: warning: terminal "%s" not recognized; defaulting to %s\n' \
     "$previous_term" "$fallback_term" >&2
 fi
