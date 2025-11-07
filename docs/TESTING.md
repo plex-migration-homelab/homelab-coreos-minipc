@@ -24,8 +24,16 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
    - Attach one NIC to a libvirt bridge that provides outbound internet.
    - Optionally add a second NIC on an isolated network to emulate LAN-only services.
 5. Add **virtiofs-backed storage shares** for NFS validation
-   - Use **Add Hardware → Filesystem → virtiofs** to expose host directories that simulate the NAS exports expected by the image.
-   - Map host paths to guest mount points `/mnt/nas-media`, `/mnt/nas-nextcloud`, and `/mnt/nas-immich` to satisfy the systemd mount units that ship with the build.【F:files/system/etc/systemd/system/mnt-nas-media.mount†L1-L19】【F:files/system/etc/systemd/system/mnt-nas-nextcloud.mount†L1-L19】【F:files/system/etc/systemd/system/mnt-nas-immich.mount†L1-L19】
+   - **Host-side prep**: create throwaway export directories and seed each with a README marker so you can confirm the shares are live inside the guest:
+     ```bash
+     mkdir -p "${HOME}"/virt-shares/nas-{media,nextcloud,immich}
+     for share in media nextcloud immich; do
+       echo "QA sentinel for ${share} share" > "${HOME}/virt-shares/nas-${share}/README"
+     done
+     ```
+   - Use **Add Hardware → Filesystem → virtiofs** to expose host directories that simulate the NAS exports expected by the image. Set **Type** to `mount`, **Driver** to `virtiofs`, and **Mode** to `passthrough` so the guest sees the host files verbatim.
+   - Map host paths `~/virt-shares/nas-media`, `~/virt-shares/nas-nextcloud`, and `~/virt-shares/nas-immich` to guest target paths `/mnt/nas-media`, `/mnt/nas-nextcloud`, and `/mnt/nas-immich` respectively so the systemd mount units that ship with the build resolve on boot.【F:files/system/etc/systemd/system/mnt-nas-media.mount†L1-L19】【F:files/system/etc/systemd/system/mnt-nas-nextcloud.mount†L1-L19】【F:files/system/etc/systemd/system/mnt-nas-immich.mount†L1-L19】
+   - After the test cycle, remove the dummy directories so the host filesystem stays clean: `rm -rf "${HOME}"/virt-shares/nas-{media,nextcloud,immich}`.
 6. Attach any additional virtual disks needed for migration rehearsal (e.g., a second qcow2 for exporting container data).
 
 ## 3. First Boot Verification
