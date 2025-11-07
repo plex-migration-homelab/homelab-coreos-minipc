@@ -107,31 +107,25 @@ require("lazy").setup({
       local lspconfig = require("lspconfig")
       local util = require("lspconfig.util")
 
-      -- Python
-      lspconfig.pyright.setup({
-        capabilities = capabilities,
-        root_dir = util.root_pattern("pyproject.toml", "setup.py", "requirements.txt", ".git"),
-      })
-
-      -- Bash
-      lspconfig.bashls.setup({
-        capabilities = capabilities,
-      })
-
-      -- YAML
-      lspconfig.yamlls.setup({
-        capabilities = capabilities,
-      })
-
-      -- Lua
-      lspconfig.lua_ls.setup({
-        capabilities = capabilities,
-        settings = {
-          Lua = {
-            diagnostics = { globals = { "vim" } },
+      local servers = {
+        pyright = {
+          root_dir = util.root_pattern("pyproject.toml", "setup.py", "requirements.txt", ".git"),
+        },
+        bashls = {},
+        yamlls = {},
+        lua_ls = {
+          settings = {
+            Lua = {
+              diagnostics = { globals = { "vim" } },
+            },
           },
         },
-      })
+      }
+
+      for server, opts in pairs(servers) do
+        opts.capabilities = capabilities
+        lspconfig[server].setup(opts)
+      end
     end,
   },
 
