@@ -30,4 +30,7 @@ modules:
       - jq
       - bat
       - btop
+      - make
+      - unzip
+      - gcc
 
