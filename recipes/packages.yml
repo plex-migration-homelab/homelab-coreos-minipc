@@ -1,39 +1,42 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/module-list-v1.json
 modules:
-  - type: rpm-ostree
+  - type: dnf
     repos:
-      - https://copr.fedorainfracloud.org/coprs/scottames/ghostty/repo/fedora-%OS_VERSION%/scottames-ghostty-fedora-%OS_VERSION%.repo
+      files:
+        - https://copr.fedorainfracloud.org/coprs/scottames/ghostty/repo/fedora-%OS_VERSION%/scottames-ghostty-fedora-%OS_VERSION%.repo
     install:
-      # Intel VAAPI hardware acceleration packages
-      - intel-media-driver      # iHD driver for Intel Gen 8+ (Broadwell and newer)
-      - libva                   # VAAPI core library
-      - libva-utils             # vainfo and debugging tools
-      - ffmpeg                  # Hardware-accelerated encoding/decoding
-      - gstreamer1-vaapi        # GStreamer VAAPI plugin
+      packages:
+        - packages:
+            # Intel VAAPI hardware acceleration packages
+            - intel-media-driver      # iHD driver for Intel Gen 8+ (Broadwell and newer)
+            - libva                   # VAAPI core library
+            - libva-utils             # vainfo and debugging tools
+            - ffmpeg                  # Hardware-accelerated encoding/decoding
+            - gstreamer1-vaapi        # GStreamer VAAPI plugin
 
-      # Shell and utilities
-      - zsh                     # Z shell
-      - git                     # Required for dotfiles setup
-      - stow                    # GNU Stow for dotfiles management
-      - ghostty
-      - fastfetch
-      - neovim
-      - htop
-      - wget
-      - kitty
-      - fzf
-      - zoxide
-      - tmux
-      - tree
-      - rsync
-      - jq
-      - bat
-      - btop
-      - make
-      - unzip
-      - ripgrep
-      - fd-find
+            # Shell and utilities
+            - zsh                     # Z shell
+            - git                     # Required for dotfiles setup
+            - stow                    # GNU Stow for dotfiles management
+            - ghostty
+            - fastfetch
+            - neovim
+            - htop
+            - wget
+            - kitty
+            - fzf
+            - zoxide
+            - tmux
+            - tree
+            - rsync
+            - jq
+            - bat
+            - btop
+            - make
+            - unzip
+            - ripgrep
+            - fd-find
   # Install gcc-c++ separately using dnf with allow-erasing to handle base library conflicts
   - type: dnf
     install:
