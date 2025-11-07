@@ -25,13 +25,22 @@ source "${ZINIT_HOME}/zinit.zsh"
 # Add in Powerlevel10k
 zinit ice depth=1; zinit light romkatv/powerlevel10k
 
+# Determine if fzf can be used safely in the current terminal
+fzf_ready=0
+if command -v fzf >/dev/null 2>&1 && infocmp "$TERM" >/dev/null 2>&1; then
+  fzf_ready=1
+fi
+
 # Add in zsh plugins
 zinit_plugins=(
   zsh-users/zsh-completions
   zsh-users/zsh-autosuggestions
   zdharma-continuum/fast-syntax-highlighting
-  Aloxaf/fzf-tab
 )
+
+if (( fzf_ready )); then
+  zinit_plugins+=(Aloxaf/fzf-tab)
+fi
 
 for plugin in "${zinit_plugins[@]}"; do
   zinit light "$plugin"
@@ -46,6 +55,10 @@ zinit snippet OMZP::sudo
 
 # Load completions
 autoload -Uz compinit && compinit
+
+if (( ! fzf_ready )); then
+  bindkey '^I' expand-or-complete
+fi
 
 zinit cdreplay -q
 
