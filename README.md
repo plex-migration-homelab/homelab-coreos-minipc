@@ -390,7 +390,7 @@ docker compose -f media.yml -f web.yml -f cloud.yml up -d
 The image includes zsh and a dotfiles directory:
 
 - **Zsh Shell**: Installed and configured as the default shell
-- **Setup Service**: A systemd service (`dotfiles-setup.service`) runs once on first boot to:
+- **Setup Service**: A systemd service (`home-directory-setup.service`) runs once on first boot to:
   - Clone the dotfiles to `/var/home/core/.dotfiles`
   - Run the installation script to set up shell configuration
   - Install zsh configuration including `.zshrc` and Powerlevel10k theme
