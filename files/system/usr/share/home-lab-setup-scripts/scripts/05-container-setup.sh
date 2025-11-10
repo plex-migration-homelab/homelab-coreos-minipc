@@ -156,10 +156,13 @@ select_container_stacks() {
     echo "  $i) All stacks"
     echo ""
 
+    # Store the "All stacks" option number for validation
+    local all_stacks_option="$i"
+
     # Prompt for selection
     log_info "Select which container stacks to setup:"
     log_info "  - Enter numbers separated by spaces (e.g., '1 3' for first and third)"
-    log_info "  - Enter '$i' to setup all stacks"
+    log_info "  - Enter '$all_stacks_option' to setup all stacks"
     log_info "  - Press Enter to setup all stacks (default)"
     echo ""
 
@@ -168,23 +171,29 @@ select_container_stacks() {
 
     # Default to all if empty
     if [[ -z "$selection" ]]; then
-        selection="$i"
+        selection="$all_stacks_option"
     fi
 
     # Clear selected services array
     SELECTED_SERVICES=()
 
     # Parse selection
-    if [[ "$selection" == "$i" ]]; then
+    if [[ "$selection" == "$all_stacks_option" ]]; then
         # All stacks selected
         log_success "Selected: All stacks"
         SELECTED_SERVICES=("${service_list[@]}")
     else
         # Individual stacks selected
         for num in $selection; do
-            # Validate number
+            # Check if "All stacks" option was included in a mixed selection
+            if [[ "$num" == "$all_stacks_option" ]]; then
+                log_warning "The 'All stacks' option ($all_stacks_option) should be used alone, not mixed with individual selections. Skipping."
+                continue
+            fi
+
+            # Validate number (valid range: 1 to number of services)
             if [[ ! "$num" =~ ^[0-9]+$ ]] || [[ "$num" -lt 1 ]] || [[ "$num" -gt ${#service_list[@]} ]]; then
-                log_warning "Invalid selection: $num (skipping)"
+                log_warning "Invalid selection: $num (valid range: 1-${#service_list[@]}). Skipping."
                 continue
             fi
 
