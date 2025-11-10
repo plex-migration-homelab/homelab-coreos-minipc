@@ -294,7 +294,7 @@ show_directory_tree() {
     local count=0
     for app in "${APPDATA_DIRS[@]}"; do
         echo "${APPDATA_BASE}/${app}/"
-        ((count++))
+        (( count += 1 ))
         if [[ $count -ge 5 ]]; then
             echo "... and $((${#APPDATA_DIRS[@]} - count)) more"
             break
