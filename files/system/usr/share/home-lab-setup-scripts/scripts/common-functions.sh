@@ -359,7 +359,13 @@ check_package() {
 
 check_systemd_service() {
     local service="$1"
-    if systemctl list-unit-files | grep -q "^${service}"; then
+
+    # Check if unit file exists in standard systemd locations
+    # This is more reliable than systemctl list-unit-files, especially
+    # for units deployed with the image that may not be indexed yet
+    if [[ -e "/etc/systemd/system/${service}" ]] || \
+       [[ -e "/usr/lib/systemd/system/${service}" ]] || \
+       [[ -e "/lib/systemd/system/${service}" ]]; then
         return 0
     else
         return 1
