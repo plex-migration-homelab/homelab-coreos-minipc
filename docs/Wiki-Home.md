@@ -10,30 +10,17 @@ This wiki provides detailed documentation for setting up and maintaining a decla
 
 ### Getting Started
 
-- **[Installation Guide](../README.md#installation)** - Initial system installation with Ignition
-- **[Setup Guide](Setup.md)** - Post-installation configuration and service deployment
-
-### Configuration Guides
-
-- **[Setup Guide](Setup.md)** - Complete post-installation setup
-  - User and directory structure setup
-  - WireGuard VPN configuration
-  - NFS mount configuration
-  - Container deployment (Podman Compose or Docker)
-  - Service auto-start with systemd
-
-### Advanced Topics
-
-- **[Testing Guide](TESTING.md)** - Development and testing workflows
+- **[Installation Guide](https://github.com/zoro11031/homelab-coreos-minipc?tab=readme-ov-file#ignition-setup-first-time-installation)** - Initial system installation with Ignition
+- **[Setup Guide](https://github.com/zoro11031/homelab-coreos-minipc/wiki/Setup)** - Post-installation configuration and service deployment
 
 ## Quick Links
 
 ### Common Tasks
 
-1. **[Setting up WireGuard](Setup.md#3-wireguard-configuration)** - Configure VPN connectivity
-2. **[Configuring NFS Mounts](Setup.md#4-nfs-mounts-setup)** - Set up network storage
-3. **[Deploying Containers](Setup.md#5-container-setup)** - Run your services
-4. **[Troubleshooting](Setup.md#troubleshooting)** - Fix common issues
+1. **[Setting up WireGuard](https://github.com/zoro11031/homelab-coreos-minipc/wiki/Setup#3-wireguard-configuration)** - Configure VPN connectivity
+2. **[Configuring NFS Mounts](https://github.com/zoro11031/homelab-coreos-minipc/wiki/Setup#4-nfs-mounts-setup)** - Set up network storage
+3. **[Deploying Containers](https://github.com/zoro11031/homelab-coreos-minipc/wiki/Setup#5-container-setup)** - Run your services
+4. **[Troubleshooting](https://github.com/zoro11031/homelab-coreos-minipc/wiki/Testing)** - Fix common issues
 
 ### System Information
 
