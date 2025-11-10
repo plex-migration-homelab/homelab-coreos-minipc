@@ -9,7 +9,6 @@
 # - Pre-existing systemd services from BlueBuild image
 # - Template locations
 # - Network connectivity
-# - Disk space
 # - Home directory setup completion
 
 set -euo pipefail
@@ -53,10 +52,6 @@ TEMPLATE_DIRS=(
     "compose-setup"
     "wireguard-setup"
 )
-
-# Minimum disk space requirements (in GB)
-MIN_DISK_SPACE_ROOT=20
-MIN_DISK_SPACE_VAR=50
 
 # ============================================================================
 # Check Functions
@@ -311,39 +306,6 @@ check_network_connectivity() {
     fi
 }
 
-check_disk_space() {
-    log_step "Checking Disk Space"
-
-    # Check root filesystem
-    local root_avail
-    root_avail=$(df / | awk 'NR==2 {print int($4/1024/1024)}')
-    if [[ $root_avail -ge $MIN_DISK_SPACE_ROOT ]]; then
-        log_success "Root filesystem: ${root_avail}GB available (minimum: ${MIN_DISK_SPACE_ROOT}GB)"
-    else
-        log_error "Root filesystem: ${root_avail}GB available (minimum: ${MIN_DISK_SPACE_ROOT}GB required)"
-        ((ERRORS++))
-    fi
-
-    # Check /var filesystem
-    local var_avail
-    var_avail=$(df /var | awk 'NR==2 {print int($4/1024/1024)}')
-    if [[ $var_avail -ge $MIN_DISK_SPACE_VAR ]]; then
-        log_success "/var filesystem: ${var_avail}GB available (minimum: ${MIN_DISK_SPACE_VAR}GB)"
-    else
-        log_error "/var filesystem: ${var_avail}GB available (minimum: ${MIN_DISK_SPACE_VAR}GB required)"
-        ((ERRORS++))
-    fi
-
-    # Check /srv if it exists as separate mount
-    if mountpoint -q /srv 2>/dev/null; then
-        local srv_avail
-        srv_avail=$(df /srv | awk 'NR==2 {print int($4/1024/1024)}')
-        log_success "/srv filesystem: ${srv_avail}GB available"
-    else
-        log_info "/srv is not a separate mount point (uses root filesystem)"
-    fi
-}
-
 check_user_environment() {
     log_step "Checking User Environment"
 
@@ -522,7 +484,6 @@ main() {
     check_systemd_services || true
     check_template_locations || true
     check_network_connectivity || true
-    check_disk_space || true
     check_user_environment || true
     check_podman_configuration || true
     check_firewall_status || true
