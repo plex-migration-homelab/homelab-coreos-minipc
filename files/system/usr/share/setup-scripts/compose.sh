@@ -5,10 +5,8 @@ mkdir -p /home/core/setup
 cp -r /usr/share/compose-setup /home/core/setup
 chown -R core:core /home/core/setup
 
-# Create the production compose directory structure
-mkdir -p /srv/containers/media
-mkdir -p /srv/containers/web
-mkdir -p /srv/containers/cloud
+# Create the production compose directory
+mkdir -p /srv/containers
 
 # Copy compose files to production location
 cp -r /usr/share/compose-setup/*.yml /srv/containers/
