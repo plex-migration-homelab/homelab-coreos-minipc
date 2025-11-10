@@ -1,6 +1,7 @@
 [Unit]
 Description=Podman Compose - Media Stack
 After=network-online.target mnt-nas-media.mount
+Requires=mnt-nas-media.mount
 
 [Service]
 Type=oneshot
