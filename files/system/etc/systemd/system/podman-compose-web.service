@@ -1,6 +1,6 @@
 [Unit]
 Description=Podman Compose - Web Stack
-Wants=network-online.target
+Requires=network-online.target
 After=network-online.target
 
 [Service]
@@ -8,9 +8,10 @@ Type=oneshot
 RemainAfterExit=yes
 User=dockeruser
 Group=dockeruser
-WorkingDirectory=/home/dockeruser/compose/web
-ExecStart=/usr/bin/podman-compose up -d
-ExecStop=/usr/bin/podman-compose down
+WorkingDirectory=/srv/containers
+ExecStart=/usr/local/bin/podman-compose -f web.yml up -d
+ExecStop=/usr/local/bin/podman-compose -f web.yml down
+TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target
