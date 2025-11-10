@@ -77,6 +77,10 @@ discover_available_stacks() {
         if [[ "$filename" == .* ]]; then
             continue
         fi
+        # Skip known non-stack files (env.example.yml, README.yml, etc.)
+        if [[ "$filename" == "env.example.yml" || "$filename" == "env.example.yaml" || "$filename" == "README.yml" || "$filename" == "README.yaml" ]]; then
+            continue
+        fi
 
         # Get service name (filename without extension)
         local service_name="${filename%.yml}"
