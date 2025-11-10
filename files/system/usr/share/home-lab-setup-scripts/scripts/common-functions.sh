@@ -363,9 +363,9 @@ check_systemd_service() {
     # Check if unit file exists in standard systemd locations
     # This is more reliable than systemctl list-unit-files, especially
     # for units deployed with the image that may not be indexed yet
-    if [[ -f "/etc/systemd/system/${service}" ]] || \
-       [[ -f "/usr/lib/systemd/system/${service}" ]] || \
-       [[ -f "/lib/systemd/system/${service}" ]]; then
+    if [[ -e "/etc/systemd/system/${service}" ]] || \
+       [[ -e "/usr/lib/systemd/system/${service}" ]] || \
+       [[ -e "/lib/systemd/system/${service}" ]]; then
         return 0
     else
         return 1
