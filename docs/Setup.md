@@ -5,14 +5,17 @@ This guide provides detailed instructions for setting up the homelab CoreOS mini
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
-- [1. User Setup](#1-user-setup)
-- [2. Directory Structure](#2-directory-structure)
-- [3. WireGuard Configuration](#3-wireguard-configuration)
-- [4. NFS Mounts Setup](#4-nfs-mounts-setup)
-- [5. Container Setup](#5-container-setup)
-  - [Option A: Podman Compose (Recommended)](#option-a-podman-compose-recommended)
-  - [Option B: Docker](#option-b-docker)
-- [6. Service Deployment](#6-service-deployment)
+- [Automated Setup (Recommended)](#automated-setup-recommended)
+  - [Quick Start](#quick-start)
+  - [What Gets Configured](#what-gets-configured)
+  - [Interactive Prompts](#interactive-prompts)
+- [Manual Setup](#manual-setup)
+  - [1. User Setup](#1-user-setup)
+  - [2. Directory Structure](#2-directory-structure)
+  - [3. WireGuard Configuration](#3-wireguard-configuration)
+  - [4. NFS Mounts Setup](#4-nfs-mounts-setup)
+  - [5. Container Setup](#5-container-setup)
+  - [6. Service Deployment](#6-service-deployment)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -23,6 +26,154 @@ This guide provides detailed instructions for setting up the homelab CoreOS mini
 - SSH access to the system as the `core` user
 - Network connectivity to your file server (if using NFS)
 - Your WireGuard endpoint details (if setting up VPN)
+- Required packages layered into image: `podman` or `docker`, `nfs-utils`, `wireguard-tools`
+
+---
+
+## Automated Setup (Recommended)
+
+The `homelab-setup-scripts` provide an interactive, automated way to configure your entire homelab environment. This is the **recommended approach** for most users.
+
+### Quick Start
+
+```bash
+# Navigate to the setup scripts directory
+cd ~/homelab-setup-scripts
+
+# Run the main orchestrator
+./homelab-setup.sh
+```
+
+You'll see an interactive menu with these options:
+
+```
+[A] Run All Steps (Complete Setup)
+[Q] Quick Setup (Skip WireGuard)
+
+Individual Steps:
+[0] Pre-flight Check
+[1] User Setup
+[2] Directory Setup
+[3] WireGuard Setup
+[4] NFS Setup
+[5] Container Setup
+[6] Service Deployment
+
+[T] Troubleshooting Tool
+[S] Show Setup Status
+```
+
+**For first-time setup:**
+- Choose `[A]` for complete setup (includes WireGuard VPN)
+- Choose `[Q]` for quick setup (skips WireGuard)
+
+### What Gets Configured
+
+The automated setup configures:
+
+1. **Container Runtime Selection**
+   - Choose between Docker or Podman
+   - Auto-detects available runtimes
+   - Uses correct compose commands automatically
+
+2. **User Account**
+   - Use current user (`core`) or create custom dedicated user
+   - Automatically configures groups and permissions
+   - Sets up subuid/subgid for rootless containers
+   - Detects UID/GID and timezone automatically
+
+3. **Directory Structure**
+   - `/srv/containers/{media,web,cloud}/` for compose files
+   - `/var/lib/containers/appdata/` for persistent data
+   - `/mnt/nas-*` mount points for NFS shares
+
+4. **WireGuard VPN** (optional)
+   - Generates server and peer keys
+   - Auto-detects WAN interface
+   - Creates configuration from templates
+   - Exports peer configurations
+
+5. **NFS Mounts**
+   - Detects pre-existing systemd mount units
+   - Tests server connectivity
+   - Configures and enables mounts
+
+6. **Container Services**
+   - Copies compose templates
+   - Creates environment files with your settings
+   - Configures passwords and tokens
+   - Sets proper ownership
+
+7. **Service Deployment**
+   - Enables systemd services
+   - Pulls container images
+   - Starts all services
+   - Verifies health
+
+### Interactive Prompts
+
+During setup, you'll be asked:
+
+**Container Runtime:**
+```
+Multiple container runtimes detected:
+  1. Podman (rootless, recommended for UBlue uCore)
+  2. Docker
+
+Select container runtime [1]:
+```
+
+**User Configuration:**
+```
+Options:
+  1. Use current user (core)
+  2. Create a new dedicated user
+
+Choose option [1]: 2
+Enter new username [containeruser]: myhomelabuser
+```
+
+**NFS Server:**
+```
+NFS server IP address [192.168.7.10]: 192.168.1.50
+```
+
+**Service Passwords:**
+```
+Nextcloud admin password: ********
+Nextcloud database password: ********
+Immich database password: ********
+```
+
+### Configuration Storage
+
+All settings are saved to `~/.homelab-setup.conf`:
+
+```bash
+CONTAINER_RUNTIME=podman
+SETUP_USER=myhomelabuser
+PUID=1001
+PGID=1001
+TZ=America/Chicago
+APPDATA_PATH=/var/lib/containers/appdata
+NFS_SERVER=192.168.1.50
+```
+
+### Post-Setup
+
+After automated setup completes:
+
+1. Access your services at the displayed URLs
+2. Configure each service through its web interface
+3. Run troubleshooting if needed: `./scripts/troubleshoot.sh`
+
+---
+
+## Manual Setup
+
+If you prefer manual configuration or need to customize beyond what the automated scripts provide, follow these detailed steps.
+
+> **Note:** The automated setup scripts (above) handle all of these steps for you. Manual setup is only needed for advanced customization or troubleshooting.
 
 ---
 
@@ -30,29 +181,44 @@ This guide provides detailed instructions for setting up the homelab CoreOS mini
 
 While you can run everything as the `core` user, it's recommended to create a dedicated user for managing containers.
 
-### Create a Docker Management User
+> **Automated Setup:** The setup scripts handle this automatically, allowing you to choose current user or create a custom-named user with all necessary configurations.
+
+### Create a Container Management User
+
+You can name your user anything you like. Common choices:
+- `containeruser` (generic)
+- `homelabuser` (descriptive)
+- `dockeruser` (traditional)
+- Or use your own custom name
 
 ```bash
-# Create a dedicated user for managing containers
-sudo useradd -m -s /bin/bash dockeruser
+# Create a dedicated user (replace USERNAME with your choice)
+sudo useradd -m -s /bin/bash USERNAME
 
 # Add the user to necessary groups
-sudo usermod -aG wheel dockeruser  # sudo access
-sudo usermod -aG docker dockeruser # if using Docker
+sudo usermod -aG wheel USERNAME     # sudo access
+sudo usermod -aG podman USERNAME    # if using Podman
+sudo usermod -aG docker USERNAME    # if using Docker
 
 # Set a password for the new user
-sudo passwd dockeruser
+sudo passwd USERNAME
+
+# Configure subuid/subgid for rootless containers (recommended)
+echo "USERNAME:100000:65536" | sudo tee -a /etc/subuid
+echo "USERNAME:100000:65536" | sudo tee -a /etc/subgid
 ```
 
-### Switch to the Docker User
+### Switch to Your Container User
 
 ```bash
 # Switch to the new user
-sudo su - dockeruser
+sudo su - USERNAME
 
 # Or use the core user if preferred
 # All remaining commands can be run as either user
 ```
+
+> **Note:** Replace `USERNAME` with your chosen username throughout this guide. The automated setup scripts use the variable `SETUP_USER` which you can customize during setup.
 
 ---
 
@@ -60,39 +226,39 @@ sudo su - dockeruser
 
 Set up a consistent directory structure for your container configurations and application data.
 
+> **Automated Setup:** The setup scripts automatically create `/srv/containers/{media,web,cloud}/` for compose files and `/var/lib/containers/appdata/` for persistent data, with proper ownership for your configured user.
+
 ### Create Compose Directory Structure
 
 ```bash
-# Create main compose directory (system-wide location)
-sudo mkdir -p /srv/containers
+# Recommended structure (used by automated scripts)
+sudo mkdir -p /srv/containers/media
+sudo mkdir -p /srv/containers/web
+sudo mkdir -p /srv/containers/cloud
 
-# Create subdirectories for different service stacks
-sudo mkdir -p /srv/containers/media      # Media services (Plex, Jellyfin, etc.)
-sudo mkdir -p /srv/containers/web        # Web services (Overseerr, Wizarr)
-sudo mkdir -p /srv/containers/cloud      # Cloud services (Nextcloud, Immich)
+# Set ownership to your container user
+sudo chown -R USERNAME:USERNAME /srv/containers
 
-# Set appropriate ownership (assuming dockeruser)
-sudo chown -R dockeruser:dockeruser /srv/containers
+# Alternative: Home directory approach
+mkdir -p ~/compose/media      # Media services (Plex, Jellyfin, etc.)
+mkdir -p ~/compose/web        # Web services (Overseerr, Wizarr)
+mkdir -p ~/compose/cloud      # Cloud services (Nextcloud, Immich)
 ```
 
 ### Create Application Data Directory
 
 ```bash
-# Create appdata directory for persistent container data
+# Recommended location (used by automated scripts)
 sudo mkdir -p /var/lib/containers/appdata
 
 # Create subdirectories for each service
-sudo mkdir -p /var/lib/containers/appdata/plex
-sudo mkdir -p /var/lib/containers/appdata/jellyfin
-sudo mkdir -p /var/lib/containers/appdata/overseerr
-sudo mkdir -p /var/lib/containers/appdata/wizarr
-sudo mkdir -p /var/lib/containers/appdata/nextcloud
-sudo mkdir -p /var/lib/containers/appdata/immich
-sudo mkdir -p /var/lib/containers/appdata/postgres
-sudo mkdir -p /var/lib/containers/appdata/redis
+sudo mkdir -p /var/lib/containers/appdata/{plex,jellyfin,tautulli,overseerr,wizarr,organizr,homepage,nextcloud,nextcloud-db,nextcloud-redis,collabora,immich,immich-db,immich-redis,immich-ml}
 
-# Set appropriate ownership (assuming dockeruser)
-sudo chown -R dockeruser:dockeruser /var/lib/containers/appdata
+# Set ownership to your container user
+sudo chown -R USERNAME:USERNAME /var/lib/containers/appdata
+
+# Alternative: Home directory approach
+mkdir -p ~/appdata/{plex,jellyfin,overseerr,wizarr,nextcloud,immich,postgres,redis}
 ```
 
 ### Recommended Directory Structure
@@ -339,6 +505,25 @@ cd /srv/containers
 ```
 
 ---
+
+> **Automated Setup:** The setup scripts automatically detect available runtimes and let you choose. They configure services to use the correct compose command (podman-compose, docker-compose, or plugin variants) and handle all environment variable setup.
+
+### Choosing a Container Runtime
+
+**Podman (Recommended for UBlue uCore):**
+- Daemonless architecture
+- Rootless containers by default
+- Drop-in replacement for Docker
+- Native systemd integration
+- Pre-installed on uCore
+
+**Docker:**
+- Industry standard
+- Larger ecosystem
+- Requires daemon
+- Needs to be layered onto uCore
+
+The automated setup scripts support both and will use whichever you choose.
 
 ### Option A: Podman Compose (Recommended)
 
