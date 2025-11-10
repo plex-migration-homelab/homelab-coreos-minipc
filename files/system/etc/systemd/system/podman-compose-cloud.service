@@ -1,6 +1,7 @@
 [Unit]
 Description=Podman Compose - Cloud Stack
 After=network-online.target mnt-nas-nextcloud.mount mnt-nas-immich.mount
+Requires=mnt-nas-nextcloud.mount mnt-nas-immich.mount
 
 [Service]
 Type=oneshot
