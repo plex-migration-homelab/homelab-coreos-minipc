@@ -69,16 +69,6 @@ test_nfs_export() {
 # Systemd Mount Unit Functions
 # ============================================================================
 
-mount_point_to_unit_name() {
-    local mount_point="$1"
-
-    # Convert /mnt/nas-media to mnt-nas\x2dmedia.mount
-    # Remove leading slash and replace / with - and - with \x2d
-    local unit_name
-    unit_name=$(echo "$mount_point" | sed 's|^/||' | sed 's|/|-|g' | sed 's|-|\\x2d|g')
-    echo "${unit_name}.mount"
-}
-
 check_existing_mount_unit() {
     local mount_point="$1"
 
@@ -86,16 +76,16 @@ check_existing_mount_unit() {
     local unit_name
     unit_name=$(systemd-escape --path --suffix=mount "$mount_point")
 
-    log_info "Checking for mount unit: $unit_name"
+    log_info "Checking for mount unit: $unit_name" >&2
 
     if check_systemd_service "$unit_name"; then
         local unit_location
         unit_location=$(get_service_location "$unit_name")
-        log_success "Found pre-configured mount unit: $unit_location"
+        log_success "Found pre-configured mount unit: $unit_location" >&2
         echo "$unit_location"
         return 0
     else
-        log_info "No pre-configured mount unit found"
+        log_info "No pre-configured mount unit found" >&2
         return 1
     fi
 }
@@ -103,6 +93,7 @@ check_existing_mount_unit() {
 update_mount_unit_server() {
     local unit_file="$1"
     local nfs_server="$2"
+    local mount_point="$3"
 
     log_info "Updating NFS server in mount unit"
 
@@ -250,7 +241,7 @@ configure_nfs_mounts() {
 
             # Ask if user wants to update the NFS server
             if prompt_yes_no "Update NFS server in this mount unit?" "yes"; then
-                update_mount_unit_server "$existing_unit" "$nfs_server" || continue
+                update_mount_unit_server "$existing_unit" "$nfs_server" "$mount_point" || continue
             fi
         else
             # Create new mount unit
