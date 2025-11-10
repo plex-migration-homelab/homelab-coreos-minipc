@@ -311,12 +311,14 @@ interactive_user_setup() {
     current_user=$(whoami)
 
     echo ""
-    log_info "You can use the current user ($current_user) or create a dedicated user"
-    log_info "for running container services."
+    log_warning "SECURITY BEST PRACTICE:"
+    log_info "Create a dedicated user for container management separate from your admin user."
+    log_info "This user will own all container files but you won't log in as this user."
+    log_info "You'll continue using '$current_user' to run these scripts and manage the system."
     echo ""
     log_info "Options:"
-    log_info "  1. Use current user ($current_user)"
-    log_info "  2. Create a new dedicated user"
+    log_info "  ${COLOR_BOLD}1. Create a new dedicated user (RECOMMENDED)${COLOR_RESET}"
+    log_info "  2. Use current user ($current_user) - not recommended for production"
     echo ""
 
     while [[ -z "$target_user" ]]; do
@@ -325,13 +327,9 @@ interactive_user_setup() {
 
         case $choice in
             1)
-                target_user="$current_user"
-                log_success "Using current user: $target_user"
-                ;;
-            2)
-                # Ask for username
+                # Create new dedicated user (RECOMMENDED)
                 local new_username
-                new_username=$(prompt_input "Enter new username" "containeruser")
+                new_username=$(prompt_input "Enter new username for container management" "containeruser")
 
                 if check_user_exists "$new_username"; then
                     log_warning "User $new_username already exists"
@@ -349,6 +347,17 @@ interactive_user_setup() {
                     target_user="$new_username"
                 fi
                 ;;
+            2)
+                # Use current user (not recommended for production)
+                log_warning "Using admin user for containers is not recommended for security"
+                if prompt_yes_no "Are you sure you want to use $current_user?" "no"; then
+                    target_user="$current_user"
+                    log_info "Using current user: $target_user"
+                else
+                    log_info "Please choose option 1 to create a dedicated user"
+                    continue
+                fi
+                ;;
             *)
                 log_error "Invalid choice. Please enter 1 or 2."
                 ;;
@@ -362,7 +371,11 @@ interactive_user_setup() {
     add_user_to_groups "$target_user"
     configure_sudo_access "$target_user"
     configure_subuid_subgid "$target_user"
+
+    # Detect UID/GID from the target user (NOT the user running the script)
     detect_user_info "$target_user"
+
+    log_info "Container files will be owned by $target_user (UID: $(get_user_uid "$target_user"), GID: $(get_user_gid "$target_user"))"
 
     # Verify setup
     verify_user_setup "$target_user"
@@ -426,6 +439,10 @@ main() {
     require_sudo
 
     print_header "UBlue uCore Homelab - User Setup"
+
+    log_info "Run this script as your admin user (e.g., 'core')"
+    log_info "This script will create a separate dedicated user for container management"
+    echo ""
 
     # Check if already configured
     if config_exists "SETUP_USER"; then
