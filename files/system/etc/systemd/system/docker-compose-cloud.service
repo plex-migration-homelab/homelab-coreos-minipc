@@ -1,6 +1,6 @@
 [Unit]
 Description=Docker Compose - Cloud Stack
-Requires=docker.service network-online.target
+Requires=docker.service network-online.target mnt-nas-nextcloud.mount mnt-nas-immich.mount
 After=docker.service network-online.target mnt-nas-nextcloud.mount mnt-nas-immich.mount
 
 [Service]

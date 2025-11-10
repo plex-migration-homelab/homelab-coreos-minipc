@@ -1,6 +1,6 @@
 [Unit]
 Description=Podman Compose - Media Stack
-Requires=network-online.target
+Requires=network-online.target mnt-nas-media.mount
 After=network-online.target mnt-nas-media.mount
 
 [Service]

@@ -1,6 +1,6 @@
 [Unit]
 Description=Docker Compose - Media Stack
-Requires=docker.service network-online.target
+Requires=docker.service network-online.target mnt-nas-media.mount
 After=docker.service network-online.target mnt-nas-media.mount
 
 [Service]
