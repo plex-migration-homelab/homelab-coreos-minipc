@@ -43,23 +43,29 @@ declare -a SELECTED_SERVICES=()
 # Template Detection Functions
 # ============================================================================
 
+# Helper function to count YAML files in a directory
+count_yaml_files() {
+    local dir="$1"
+    find "$dir" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | wc -l
+}
+
+# Helper function to check if directory has YAML files
+has_yaml_files() {
+    local dir="$1"
+    local count
+    count=$(count_yaml_files "$dir")
+    [[ $count -gt 0 ]]
+}
+
 find_compose_templates() {
     log_step "Locating Compose Templates"
-
-    # Helper function to check if directory has YAML files
-    has_yaml_files() {
-        local dir="$1"
-        local count
-        count=$(find "$dir" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | wc -l)
-        [[ $count -gt 0 ]]
-    }
 
     # Check home setup directory first
     if [[ -d "$TEMPLATE_DIR_HOME" ]]; then
         log_info "Checking: $TEMPLATE_DIR_HOME"
         if has_yaml_files "$TEMPLATE_DIR_HOME"; then
             local yaml_count
-            yaml_count=$(find "$TEMPLATE_DIR_HOME" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | wc -l)
+            yaml_count=$(count_yaml_files "$TEMPLATE_DIR_HOME")
             log_success "Found templates in: $TEMPLATE_DIR_HOME ($yaml_count YAML file(s))"
             echo "$TEMPLATE_DIR_HOME"
             return 0
@@ -74,7 +80,7 @@ find_compose_templates() {
         log_info "Checking: $TEMPLATE_DIR_USR"
         if has_yaml_files "$TEMPLATE_DIR_USR"; then
             local yaml_count
-            yaml_count=$(find "$TEMPLATE_DIR_USR" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | wc -l)
+            yaml_count=$(count_yaml_files "$TEMPLATE_DIR_USR")
             log_success "Found templates in: $TEMPLATE_DIR_USR ($yaml_count YAML file(s))"
             echo "$TEMPLATE_DIR_USR"
             return 0
@@ -104,7 +110,7 @@ discover_available_stacks() {
 
     # Count total YAML files before filtering
     local total_yaml_count
-    total_yaml_count=$(find "$template_dir" -maxdepth 1 -type f \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null | wc -l)
+    total_yaml_count=$(count_yaml_files "$template_dir")
     log_info "Found $total_yaml_count total YAML file(s) in directory"
 
     # Find all .yml and .yaml files in the template directory
