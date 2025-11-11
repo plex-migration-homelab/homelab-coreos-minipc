@@ -208,7 +208,7 @@ select_container_stacks() {
             
             # Explicitly check for "All stacks" option number
             if [[ "$num" -eq "$i" ]]; then
-                log_warning "Cannot combine 'All stacks' option with individual stack selections. Either enter the number for 'All stacks' alone, or select specific stack numbers."
+                log_warning "Cannot combine 'All stacks' option with individual stack selections. Either enter the number for 'All stacks' (or press Enter) alone, or select specific stack numbers."
                 continue
             fi
             
