@@ -25,6 +25,14 @@ TEMPLATE_DIR_HOME="${HOME}/setup/compose-setup"
 TEMPLATE_DIR_USR="/usr/share/compose-setup"
 CONTAINERS_BASE="/srv/containers"
 
+# Files to exclude when discovering stacks (patterns)
+EXCLUDE_PATTERNS=(
+    ".*"              # Hidden files
+    "*.example"       # Example files
+    "README*"         # Documentation files
+    "*.md"            # Markdown files
+)
+
 # Service configurations (dynamically populated)
 declare -A SERVICES=()
 
@@ -73,8 +81,17 @@ discover_available_stacks() {
         local filename
         filename=$(basename "$yaml_file")
 
-        # Skip .env.example and any hidden files
-        if [[ "$filename" == .* ]]; then
+        # Check if filename matches any exclude pattern
+        local should_exclude=false
+        for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+            # shellcheck disable=SC2053
+            if [[ "$filename" == $pattern ]]; then
+                should_exclude=true
+                break
+            fi
+        done
+
+        if $should_exclude; then
             continue
         fi
         # Skip known non-stack files (env.example.yml, README.yml, etc.)
@@ -180,7 +197,9 @@ select_container_stacks() {
         log_success "Selected: All stacks"
         SELECTED_SERVICES=("${service_list[@]}")
     else
-        # Individual stacks selected
+        # Individual stacks selected - use associative array to prevent duplicates
+        declare -A selected_map=()
+
         for num in $selection; do
             # Validate number is numeric
             if [[ ! "$num" =~ ^[0-9]+$ ]]; then
@@ -200,9 +219,15 @@ select_container_stacks() {
                 continue
             fi
 
-            # Add to selected services (arrays are 0-indexed)
+            # Add to selected services map (arrays are 0-indexed)
             local idx=$((num - 1))
-            SELECTED_SERVICES+=("${service_list[$idx]}")
+            local service_name="${service_list[$idx]}"
+            selected_map["$service_name"]=1
+        done
+
+        # Convert map to array
+        for service in "${!selected_map[@]}"; do
+            SELECTED_SERVICES+=("$service")
         done
 
         # Show selected stacks
@@ -671,7 +696,8 @@ main() {
                 if [[ -n "$saved_services" ]]; then
                     read -ra SELECTED_SERVICES <<< "$saved_services"
                 else
-                    # Fallback: assume all services if no saved selection
+                    # Fallback: show all configured services if no saved selection
+                    log_info "Previous selection not found - showing all configured stacks"
                     for service in "${!SERVICES[@]}"; do
                         SELECTED_SERVICES+=("$service")
                     done
