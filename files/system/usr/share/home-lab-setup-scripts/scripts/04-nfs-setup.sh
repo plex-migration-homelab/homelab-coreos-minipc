@@ -89,12 +89,6 @@ cleanup_old_mount_unit() {
         unit_names+=("$legacy_name")
     fi
 
-    # Also check for units with literal \x2d in the filename (from previous bug)
-    local escaped_with_x2d="${legacy_name//\-/\\x2d}"
-    if [[ "$escaped_with_x2d" != "$unit_name" ]] && [[ "$escaped_with_x2d" != "$legacy_name" ]]; then
-        unit_names+=("$escaped_with_x2d")
-    fi
-
     # Clean up each potential unit name
     for name in "${unit_names[@]}"; do
         # Stop if active
