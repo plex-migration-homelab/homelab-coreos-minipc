@@ -32,11 +32,11 @@ install:
 ## test: Run tests
 test:
 	@echo "Running tests..."
-	go test -v ./...
+	go test ./...
 
-## test-verbose: Run tests with verbose output
+## test-verbose: Run tests with verbose output and coverage
 test-verbose:
-	@echo "Running tests (verbose)..."
+	@echo "Running tests (verbose with coverage)..."
 	go test -v -cover ./...
 
 ## test-coverage: Run tests with coverage report

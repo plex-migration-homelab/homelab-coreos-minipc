@@ -49,16 +49,18 @@ func (u *UI) PromptPasswordConfirm(prompt string) (string, error) {
 			return "", err
 		}
 
+		// Validate password before asking for confirmation
+		if password1 == "" {
+			u.Error("Password cannot be empty")
+			continue
+		}
+
 		password2, err := u.PromptPassword("Confirm password")
 		if err != nil {
 			return "", err
 		}
 
 		if password1 == password2 {
-			if password1 == "" {
-				u.Error("Password cannot be empty")
-				continue
-			}
 			return password1, nil
 		}
 

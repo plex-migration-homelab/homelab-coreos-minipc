@@ -53,6 +53,31 @@ homelab-setup status
 homelab-setup troubleshoot
 ```
 
+## Requirements
+
+### System Requirements
+
+- **Fedora CoreOS / UBlue uCore** - rpm-ostree based system
+- **Go 1.23 or higher** - For building from source
+- **Passwordless sudo** - Required for system operations (see below)
+
+### Passwordless Sudo Configuration
+
+This tool requires passwordless sudo for system operations (service management, file operations, etc.). To configure:
+
+```bash
+# Add your user to sudoers with NOPASSWD
+echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/$USER
+sudo chmod 0440 /etc/sudoers.d/$USER
+```
+
+**Security Note**: For production environments, limit sudo access to specific commands:
+
+```bash
+# Example: Limited sudo access
+echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /usr/bin/mkdir, /usr/bin/chown, /usr/bin/chmod" | sudo tee /etc/sudoers.d/$USER
+```
+
 ## Development
 
 ### Prerequisites

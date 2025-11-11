@@ -72,7 +72,8 @@ func (c *Config) Load() error {
 	return nil
 }
 
-// Save writes configuration to file
+// Save writes configuration to file using atomic write pattern
+// This prevents data loss if the write operation fails midway
 func (c *Config) Save() error {
 	// Ensure directory exists
 	dir := filepath.Dir(c.filePath)
@@ -80,24 +81,44 @@ func (c *Config) Save() error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	file, err := os.OpenFile(c.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+	// Create temporary file in the same directory for atomic rename
+	tmpFile, err := os.CreateTemp(dir, ".homelab-setup.conf.tmp-*")
 	if err != nil {
-		return fmt.Errorf("failed to create config file: %w", err)
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath) // Cleanup on error
+
+	// Set proper permissions on temp file
+	if err := tmpFile.Chmod(0600); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to set permissions on temp file: %w", err)
 	}
 
 	// Write header
-	fmt.Fprintln(file, "# UBlue uCore Homelab Setup Configuration")
-	fmt.Fprintf(file, "# Generated: %s\n", time.Now().Format(time.RFC3339))
-	fmt.Fprintln(file, "")
+	fmt.Fprintln(tmpFile, "# UBlue uCore Homelab Setup Configuration")
+	fmt.Fprintf(tmpFile, "# Generated: %s\n", time.Now().Format(time.RFC3339))
+	fmt.Fprintln(tmpFile, "")
 
 	// Write key-value pairs
 	for key, value := range c.data {
-		fmt.Fprintf(file, "%s=%s\n", key, value)
+		fmt.Fprintf(tmpFile, "%s=%s\n", key, value)
+	}
+
+	// Sync to ensure data is written to disk
+	if err := tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to sync temp file: %w", err)
 	}
 
 	// Explicitly check close error to prevent data loss
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("failed to close config file: %w", err)
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Atomic rename - if this succeeds, the old config is replaced atomically
+	if err := os.Rename(tmpPath, c.filePath); err != nil {
+		return fmt.Errorf("failed to rename temp file to config: %w", err)
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Markers manages completion marker files
@@ -26,8 +27,27 @@ func NewMarkers(dir string) *Markers {
 	}
 }
 
+// validateMarkerName ensures the marker name is safe and doesn't contain path traversal characters
+func validateMarkerName(name string) error {
+	if name == "" {
+		return fmt.Errorf("marker name cannot be empty")
+	}
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("marker name cannot contain path separators: %s", name)
+	}
+	if name == ".." || name == "." {
+		return fmt.Errorf("marker name cannot be '.' or '..': %s", name)
+	}
+	return nil
+}
+
 // Create creates a marker file
 func (m *Markers) Create(name string) error {
+	// Validate marker name to prevent path traversal
+	if err := validateMarkerName(name); err != nil {
+		return err
+	}
+
 	// Ensure directory exists
 	if err := os.MkdirAll(m.dir, 0755); err != nil {
 		return fmt.Errorf("failed to create marker directory: %w", err)
@@ -47,6 +67,11 @@ func (m *Markers) Create(name string) error {
 // Returns (exists, error) where error indicates a problem checking (e.g., permission denied)
 // If error is not nil, the exists value should not be trusted
 func (m *Markers) Exists(name string) (bool, error) {
+	// Validate marker name to prevent path traversal
+	if err := validateMarkerName(name); err != nil {
+		return false, err
+	}
+
 	markerPath := filepath.Join(m.dir, name)
 	_, err := os.Stat(markerPath)
 	if err == nil {
@@ -61,6 +86,11 @@ func (m *Markers) Exists(name string) (bool, error) {
 
 // Remove deletes a marker file
 func (m *Markers) Remove(name string) error {
+	// Validate marker name to prevent path traversal
+	if err := validateMarkerName(name); err != nil {
+		return err
+	}
+
 	markerPath := filepath.Join(m.dir, name)
 	err := os.Remove(markerPath)
 	if os.IsNotExist(err) {

@@ -39,6 +39,9 @@ func ValidatePort(port string) error {
 
 // ValidatePath validates that a path is absolute
 func ValidatePath(path string) error {
+	if path == "" {
+		return fmt.Errorf("path cannot be empty")
+	}
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("path must be absolute: %s", path)
 	}

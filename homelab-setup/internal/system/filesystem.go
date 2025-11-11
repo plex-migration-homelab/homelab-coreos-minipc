@@ -150,7 +150,43 @@ func (fs *FileSystem) GetPermissions(path string) (os.FileMode, error) {
 }
 
 // RemoveDirectory removes a directory and all its contents
+// Security note: This uses sudo rm -rf which is dangerous.
+// Safety checks are in place to prevent accidental deletion of critical directories.
 func (fs *FileSystem) RemoveDirectory(path string) error {
+	// Safety checks to prevent accidental deletion of critical directories
+	if path == "" {
+		return fmt.Errorf("refusing to remove empty path")
+	}
+
+	// Ensure path is absolute
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("refusing to remove relative path: %s (must be absolute)", path)
+	}
+
+	// Block critical system directories
+	criticalPaths := []string{
+		"/",
+		"/bin",
+		"/boot",
+		"/dev",
+		"/etc",
+		"/home",
+		"/lib",
+		"/lib64",
+		"/proc",
+		"/root",
+		"/sbin",
+		"/sys",
+		"/usr",
+		"/var",
+	}
+
+	for _, critical := range criticalPaths {
+		if path == critical || strings.HasPrefix(path, critical+"/") {
+			return fmt.Errorf("refusing to remove critical system path: %s", path)
+		}
+	}
+
 	cmd := exec.Command("sudo", "rm", "-rf", path)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to remove directory %s: %w\nOutput: %s", path, err, string(output))

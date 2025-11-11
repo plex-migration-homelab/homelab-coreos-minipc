@@ -21,8 +21,8 @@ This tool provides an interactive menu and command-line interface for:
 - NFS mount configuration
 - Container service deployment
 - Troubleshooting and diagnostics`,
-	SilenceUsage:  true,
-	SilenceErrors: true,
+	SilenceUsage:  true, // We handle errors manually, but silence usage on error
+	SilenceErrors: true, // We format errors ourselves for consistent output
 }
 
 var versionCmd = &cobra.Command{
