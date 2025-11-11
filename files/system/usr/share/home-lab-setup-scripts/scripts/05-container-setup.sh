@@ -198,9 +198,9 @@ check_template_files() {
 select_container_stacks() {
     log_step "Container Stack Selection"
 
-    echo ""
+    echo "" >&2
     log_info "Available container stacks:"
-    echo ""
+    echo "" >&2
 
     # Create sorted array of service names for consistent ordering
     local -a unsorted_services=()
@@ -213,18 +213,18 @@ select_container_stacks() {
     # Display available stacks
     local i=1
     for service in "${service_list[@]}"; do
-        echo "  $i) ${service} (${SERVICES[$service]})"
+        echo "  $i) ${service} (${SERVICES[$service]})" >&2
         ((i++))
     done
-    echo "  $i) All stacks"
-    echo ""
+    echo "  $i) All stacks" >&2
+    echo "" >&2
 
     # Prompt for selection
     log_info "Select which container stacks to setup:"
     log_info "  - Enter numbers separated by spaces (e.g., '1 3' for first and third)"
     log_info "  - Enter '$i' to setup all stacks"
     log_info "  - Press Enter to setup all stacks (default)"
-    echo ""
+    echo "" >&2
 
     local selection
     selection=$(prompt_with_color "Your selection")
@@ -288,7 +288,7 @@ select_container_stacks() {
         done
     fi
 
-    echo ""
+    echo "" >&2
 
     # Save selected services to config for potential re-runs
     save_config "SELECTED_SERVICES" "${SELECTED_SERVICES[*]}"
@@ -575,10 +575,10 @@ EOF
 interactive_container_setup() {
     log_step "Container Service Configuration"
 
-    echo ""
+    echo "" >&2
     log_info "This will configure environment variables for selected container services."
     log_info "You'll be prompted for passwords and configuration values."
-    echo ""
+    echo "" >&2
 
     if ! prompt_yes_no "Proceed with container configuration?" "yes"; then
         return 1
@@ -679,20 +679,20 @@ verify_container_setup() {
 show_setup_summary() {
     log_step "Container Setup Summary"
 
-    echo ""
+    echo "" >&2
     print_separator
     log_info "Service Configurations:"
     print_separator
 
     # Only show selected services
     for service in "${SELECTED_SERVICES[@]}"; do
-        echo "${CONTAINERS_BASE}/${service}/"
-        echo "  ├── compose.yml"
-        echo "  └── .env"
+        echo "${CONTAINERS_BASE}/${service}/" >&2
+        echo "  ├── compose.yml" >&2
+        echo "  └── .env" >&2
     done
 
     print_separator
-    echo ""
+    echo "" >&2
 
     log_info "Container services are ready for deployment"
     log_info "Environment files contain sensitive information - keep them secure!"
@@ -815,7 +815,7 @@ main() {
     create_marker "container-setup-complete"
 
     log_success "✓ Container setup completed successfully"
-    echo ""
+    echo "" >&2
     log_info "Next step: Run 06-service-deployment.sh to deploy and start services"
 }
 

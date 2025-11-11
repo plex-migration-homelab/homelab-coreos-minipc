@@ -37,15 +37,15 @@ fi
 # ============================================================================
 
 log_info() {
-    echo -e "${COLOR_BLUE}[INFO]${COLOR_RESET} $*"
+    echo -e "${COLOR_BLUE}[INFO]${COLOR_RESET} $*" >&2
 }
 
 log_success() {
-    echo -e "${COLOR_GREEN}[✓]${COLOR_RESET} $*"
+    echo -e "${COLOR_GREEN}[✓]${COLOR_RESET} $*" >&2
 }
 
 log_warning() {
-    echo -e "${COLOR_YELLOW}[WARNING]${COLOR_RESET} $*"
+    echo -e "${COLOR_YELLOW}[WARNING]${COLOR_RESET} $*" >&2
 }
 
 log_error() {
@@ -53,21 +53,21 @@ log_error() {
 }
 
 log_step() {
-    echo -e "\n${COLOR_BOLD}${COLOR_CYAN}==>${COLOR_RESET} ${COLOR_BOLD}$*${COLOR_RESET}\n"
+    echo -e "\n${COLOR_BOLD}${COLOR_CYAN}==>${COLOR_RESET} ${COLOR_BOLD}$*${COLOR_RESET}\n" >&2
 }
 
 print_header() {
     local title="$1"
     local width=70
-    echo ""
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}$(printf '=%.0s' $(seq 1 $width))${COLOR_RESET}"
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $title${COLOR_RESET}"
-    echo -e "${COLOR_BOLD}${COLOR_CYAN}$(printf '=%.0s' $(seq 1 $width))${COLOR_RESET}"
-    echo ""
+    echo "" >&2
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}$(printf '=%.0s' $(seq 1 $width))${COLOR_RESET}" >&2
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}  $title${COLOR_RESET}" >&2
+    echo -e "${COLOR_BOLD}${COLOR_CYAN}$(printf '=%.0s' $(seq 1 $width))${COLOR_RESET}" >&2
+    echo "" >&2
 }
 
 print_separator() {
-    echo -e "${COLOR_CYAN}$(printf -- '-%.0s' $(seq 1 70))${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}$(printf -- '-%.0s' $(seq 1 70))${COLOR_RESET}" >&2
 }
 
 # ============================================================================
