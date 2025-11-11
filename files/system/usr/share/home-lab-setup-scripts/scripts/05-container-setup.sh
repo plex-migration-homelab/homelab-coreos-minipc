@@ -171,11 +171,12 @@ discover_available_stacks() {
 check_template_files() {
     local template_dir="$1"
 
-    log_info "Checking template files..."
+    log_info "Checking selected template files..."
 
     local all_found=true
 
-    for service in "${!SERVICES[@]}"; do
+    # Only check selected services, not all discovered services
+    for service in "${SELECTED_SERVICES[@]}"; do
         local template_file="${SERVICES[$service]}"
         local file_path="${template_dir}/${template_file}"
 
@@ -187,7 +188,7 @@ check_template_files() {
         fi
     done
 
-    # Check for .env.example
+    # Check for .env.example (optional but helpful)
     if [[ -f "${template_dir}/.env.example" ]]; then
         log_success "Found: .env.example"
     else
@@ -404,7 +405,9 @@ configure_media_env() {
     # Jellyfin public URL
     local jellyfin_url
     jellyfin_url=$(prompt_input "Jellyfin public URL (optional)" "")
-    save_config "JELLYFIN_PUBLIC_URL" "$jellyfin_url"
+    if [[ -n "$jellyfin_url" ]]; then
+        save_config "JELLYFIN_PUBLIC_URL" "$jellyfin_url"
+    fi
 
     # Create env file
     create_env_file "$env_file" "media"
@@ -499,7 +502,7 @@ create_env_file() {
     log_info "Creating environment file: $env_file"
 
     # Create base .env file
-    cat > "$env_file" <<EOF
+    if ! cat > "$env_file" <<EOF
 # UBlue uCore Homelab - ${service^} Stack Environment
 # Generated: $(date)
 
@@ -512,11 +515,15 @@ TZ=$tz
 APPDATA_PATH=$appdata_path
 
 EOF
+    then
+        log_error "Failed to create base environment file: $env_file"
+        return 1
+    fi
 
     # Add service-specific variables
     case $service in
         media)
-            cat >> "$env_file" <<EOF
+            if ! cat >> "$env_file" <<EOF
 # Plex Configuration
 PLEX_CLAIM_TOKEN=$(load_config "PLEX_CLAIM_TOKEN" "")
 
@@ -528,9 +535,13 @@ JELLYFIN_PUBLIC_URL=$(load_config "JELLYFIN_PUBLIC_URL" "")
 TRANSCODE_DEVICE=/dev/dri
 
 EOF
+            then
+                log_error "Failed to add media configuration to: $env_file"
+                return 1
+            fi
             ;;
         web)
-            cat >> "$env_file" <<EOF
+            if ! cat >> "$env_file" <<EOF
 # Overseerr Configuration
 OVERSEERR_API_KEY=$(load_config "OVERSEERR_API_KEY" "")
 
@@ -541,9 +552,13 @@ ORGANIZR_PORT=9983
 HOMEPAGE_PORT=3000
 
 EOF
+            then
+                log_error "Failed to add web configuration to: $env_file"
+                return 1
+            fi
             ;;
         cloud)
-            cat >> "$env_file" <<EOF
+            if ! cat >> "$env_file" <<EOF
 # Nextcloud Configuration
 NEXTCLOUD_ADMIN_USER=$(load_config "NEXTCLOUD_ADMIN_USER" "admin")
 NEXTCLOUD_ADMIN_PASSWORD=$(load_config "NEXTCLOUD_ADMIN_PASSWORD" "")
@@ -562,6 +577,10 @@ POSTGRES_USER=homelab
 REDIS_PASSWORD=homelab-redis
 
 EOF
+            then
+                log_error "Failed to add cloud configuration to: $env_file"
+                return 1
+            fi
             ;;
     esac
 
@@ -765,7 +784,7 @@ main() {
     local template_dir
     if ! template_dir=$(find_compose_templates); then
         log_error "Cannot proceed without compose templates"
-        log_info ""
+        echo "" >&2
         log_info "Troubleshooting tips:"
         log_info "  1. Ensure templates are in ~/setup/compose-setup/ or /usr/share/compose-setup/"
         log_info "  2. Templates should be .yml or .yaml files (e.g., media.yml, web.yml)"
@@ -776,7 +795,7 @@ main() {
     # Discover available stacks
     if ! discover_available_stacks "$template_dir"; then
         log_error "Failed to discover container stacks"
-        log_info ""
+        echo "" >&2
         log_info "Troubleshooting tips:"
         log_info "  1. Check if the template directory contains .yml/.yaml files"
         log_info "  2. Ensure files are not excluded by patterns (.example, .*, README*, *.md)"
