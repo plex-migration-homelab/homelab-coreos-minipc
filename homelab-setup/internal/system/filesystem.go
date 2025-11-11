@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -121,9 +122,15 @@ func (fs *FileSystem) GetOwner(path string) (string, error) {
 		return "", fmt.Errorf("failed to stat %s: %w", path, err)
 	}
 
-	stat, ok := info.Sys().(*syscall.Stat_t)
+	// Use type assertion with check to prevent panic
+	sysInfo := info.Sys()
+	if sysInfo == nil {
+		return "", fmt.Errorf("failed to get system info for %s", path)
+	}
+
+	stat, ok := sysInfo.(*syscall.Stat_t)
 	if !ok {
-		return "", fmt.Errorf("failed to get stat info for %s", path)
+		return "", fmt.Errorf("failed to get stat info for %s: not a Unix filesystem", path)
 	}
 
 	uid := stat.Uid
@@ -185,7 +192,13 @@ func (fs *FileSystem) BackupFile(path string) (string, error) {
 		return "", fmt.Errorf("failed to generate timestamp: %w", err)
 	}
 
-	backupPath := fmt.Sprintf("%s.backup.%s", path, string(output[:len(output)-1]))
+	// Validate output before slicing to prevent out-of-bounds panic
+	timestampStr := strings.TrimSpace(string(output))
+	if timestampStr == "" {
+		return "", fmt.Errorf("failed to generate timestamp: empty output")
+	}
+
+	backupPath := fmt.Sprintf("%s.backup.%s", path, timestampStr)
 
 	if err := fs.CopyFile(path, backupPath); err != nil {
 		return "", fmt.Errorf("failed to create backup: %w", err)
@@ -284,6 +297,12 @@ func (fs *FileSystem) WriteFile(path string, content []byte, perms os.FileMode) 
 		return fmt.Errorf("failed to move file to %s: %w\nOutput: %s", path, err, string(output))
 	}
 
+	// Set ownership to root:root for security
+	// (temp file was created by unprivileged user)
+	if err := fs.Chown(path, "root:root"); err != nil {
+		return fmt.Errorf("failed to set ownership on %s: %w", path, err)
+	}
+
 	// Set permissions
 	return fs.Chmod(path, perms)
 }
@@ -313,9 +332,25 @@ func (fs *FileSystem) IsMount(path string) (bool, error) {
 		return false, fmt.Errorf("failed to stat parent %s: %w", parentPath, err)
 	}
 
-	// If the device IDs are different, it's a mount point
-	pathDevice := pathStat.Sys().(*syscall.Stat_t).Dev
-	parentDevice := parentStat.Sys().(*syscall.Stat_t).Dev
+	// Use type assertions with checks to prevent panic
+	pathSys := pathStat.Sys()
+	if pathSys == nil {
+		return false, fmt.Errorf("failed to get system info for %s", path)
+	}
+	pathStatT, ok := pathSys.(*syscall.Stat_t)
+	if !ok {
+		return false, fmt.Errorf("failed to get stat info for %s: not a Unix filesystem", path)
+	}
 
-	return pathDevice != parentDevice, nil
+	parentSys := parentStat.Sys()
+	if parentSys == nil {
+		return false, fmt.Errorf("failed to get system info for %s", parentPath)
+	}
+	parentStatT, ok := parentSys.(*syscall.Stat_t)
+	if !ok {
+		return false, fmt.Errorf("failed to get stat info for %s: not a Unix filesystem", parentPath)
+	}
+
+	// If the device IDs are different, it's a mount point
+	return pathStatT.Dev != parentStatT.Dev, nil
 }

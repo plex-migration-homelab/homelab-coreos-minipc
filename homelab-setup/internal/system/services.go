@@ -94,7 +94,7 @@ func (sm *ServiceManager) IsEnabled(serviceName string) (bool, error) {
 
 // Enable enables a service to start on boot
 func (sm *ServiceManager) Enable(serviceName string) error {
-	cmd := exec.Command("sudo", "systemctl", "enable", serviceName)
+	cmd := exec.Command("sudo", "-n", "systemctl", "enable", serviceName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to enable service %s: %w\nOutput: %s", serviceName, err, string(output))
@@ -104,7 +104,7 @@ func (sm *ServiceManager) Enable(serviceName string) error {
 
 // Disable disables a service from starting on boot
 func (sm *ServiceManager) Disable(serviceName string) error {
-	cmd := exec.Command("sudo", "systemctl", "disable", serviceName)
+	cmd := exec.Command("sudo", "-n", "systemctl", "disable", serviceName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to disable service %s: %w\nOutput: %s", serviceName, err, string(output))
@@ -114,7 +114,7 @@ func (sm *ServiceManager) Disable(serviceName string) error {
 
 // Start starts a service
 func (sm *ServiceManager) Start(serviceName string) error {
-	cmd := exec.Command("sudo", "systemctl", "start", serviceName)
+	cmd := exec.Command("sudo", "-n", "systemctl", "start", serviceName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to start service %s: %w\nOutput: %s", serviceName, err, string(output))
@@ -124,7 +124,7 @@ func (sm *ServiceManager) Start(serviceName string) error {
 
 // Stop stops a service
 func (sm *ServiceManager) Stop(serviceName string) error {
-	cmd := exec.Command("sudo", "systemctl", "stop", serviceName)
+	cmd := exec.Command("sudo", "-n", "systemctl", "stop", serviceName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to stop service %s: %w\nOutput: %s", serviceName, err, string(output))
@@ -134,7 +134,7 @@ func (sm *ServiceManager) Stop(serviceName string) error {
 
 // Restart restarts a service
 func (sm *ServiceManager) Restart(serviceName string) error {
-	cmd := exec.Command("sudo", "systemctl", "restart", serviceName)
+	cmd := exec.Command("sudo", "-n", "systemctl", "restart", serviceName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to restart service %s: %w\nOutput: %s", serviceName, err, string(output))
@@ -144,7 +144,7 @@ func (sm *ServiceManager) Restart(serviceName string) error {
 
 // Reload reloads a service configuration
 func (sm *ServiceManager) Reload(serviceName string) error {
-	cmd := exec.Command("sudo", "systemctl", "reload", serviceName)
+	cmd := exec.Command("sudo", "-n", "systemctl", "reload", serviceName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to reload service %s: %w\nOutput: %s", serviceName, err, string(output))
@@ -154,7 +154,7 @@ func (sm *ServiceManager) Reload(serviceName string) error {
 
 // DaemonReload reloads systemd manager configuration
 func (sm *ServiceManager) DaemonReload() error {
-	cmd := exec.Command("sudo", "systemctl", "daemon-reload")
+	cmd := exec.Command("sudo", "-n", "systemctl", "daemon-reload")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to reload systemd daemon: %w\nOutput: %s", err, string(output))
@@ -174,7 +174,7 @@ func (sm *ServiceManager) GetStatus(serviceName string) (string, error) {
 
 // GetJournalLogs returns recent journal logs for a service
 func (sm *ServiceManager) GetJournalLogs(serviceName string, lines int) (string, error) {
-	cmd := exec.Command("sudo", "journalctl", "-u", serviceName, "-n", fmt.Sprintf("%d", lines), "--no-pager")
+	cmd := exec.Command("sudo", "-n", "journalctl", "-u", serviceName, "-n", fmt.Sprintf("%d", lines), "--no-pager")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to get logs for %s: %w", serviceName, err)

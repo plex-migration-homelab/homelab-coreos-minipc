@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Config manages homelab setup configuration
@@ -86,7 +87,7 @@ func (c *Config) Save() error {
 
 	// Write header
 	fmt.Fprintln(file, "# UBlue uCore Homelab Setup Configuration")
-	fmt.Fprintf(file, "# Generated: %s\n", os.Getenv("USER"))
+	fmt.Fprintf(file, "# Generated: %s\n", time.Now().Format(time.RFC3339))
 	fmt.Fprintln(file, "")
 
 	// Write key-value pairs

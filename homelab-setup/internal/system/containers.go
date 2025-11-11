@@ -299,13 +299,15 @@ func (cm *ContainerManager) CheckRootless(runtime ContainerRuntime) (bool, error
 		return strings.TrimSpace(string(output)) == "true", nil
 
 	case RuntimeDocker:
-		// Docker typically runs as root, but check if current user is root
-		cmd := exec.Command("id", "-u")
+		// Check Docker's SecurityOptions for rootless indicators
+		cmd := exec.Command("docker", "info", "--format", "{{.SecurityOptions}}")
 		output, err := cmd.Output()
 		if err != nil {
-			return false, fmt.Errorf("failed to check user ID: %w", err)
+			return false, fmt.Errorf("failed to check docker security options: %w", err)
 		}
-		return strings.TrimSpace(string(output)) != "0", nil
+		secOpts := strings.ToLower(string(output))
+		// Look for rootless indicators in security options
+		return strings.Contains(secOpts, "rootless") || strings.Contains(secOpts, "userns"), nil
 
 	default:
 		return false, fmt.Errorf("unsupported runtime: %s", runtime)
