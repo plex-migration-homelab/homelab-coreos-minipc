@@ -159,11 +159,13 @@ select_container_stacks() {
     echo ""
 
     # Create sorted array of service names for consistent ordering
-    local -a service_list=()
+    local -a unsorted_services=()
     for service in "${!SERVICES[@]}"; do
-        service_list+=("$service")
+        unsorted_services+=("$service")
     done
-    mapfile -t service_list < <(printf '%s\n' "${service_list[@]}" | sort)
+    local -a service_list=()
+    mapfile -t service_list < <(printf '%s\n' "${unsorted_services[@]}" | sort)
+
     # Display available stacks
     local i=1
     for service in "${service_list[@]}"; do
@@ -209,7 +211,7 @@ select_container_stacks() {
             
             # Explicitly check for "All stacks" option number
             if [[ "$num" -eq "$i" ]]; then
-                log_warning "Cannot select 'All stacks' (option $i) with individual stacks. Use '$i' alone or select specific stacks."
+                log_warning "Cannot combine 'All stacks' option with individual stack selections. Either enter the number for 'All stacks' alone, or select specific stack numbers."
                 continue
             fi
             
