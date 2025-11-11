@@ -42,10 +42,8 @@ EXPECTED_SERVICES=(
     "podman-compose-media.service"
     "podman-compose-web.service"
     "podman-compose-cloud.service"
-    "mnt-nas-media.mount"
-    "mnt-nas-nextcloud.mount"
-    "mnt-nas-immich.mount"
 )
+# Note: NFS mount units are created dynamically by 04-nfs-setup.sh
 
 # Expected template locations
 TEMPLATE_DIRS=(

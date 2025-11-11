@@ -69,54 +69,56 @@ test_nfs_export() {
 # Systemd Mount Unit Functions
 # ============================================================================
 
-check_existing_mount_unit() {
+cleanup_old_mount_unit() {
     local mount_point="$1"
+    local cleaned=false
 
-    # Convert mount point to systemd unit name
+    # Generate the properly escaped unit name
     local unit_name
     unit_name=$(systemd-escape --path --suffix=mount "$mount_point")
 
-    log_info "Checking for mount unit: $unit_name" >&2
+    # Derive the simple unescaped name from mount point (for legacy pre-packaged units)
+    # e.g., /mnt/nas-media -> mnt-nas-media.mount
+    local legacy_name
+    legacy_name="${mount_point#/}"  # Remove leading /
+    legacy_name="${legacy_name//\//-}.mount"  # Replace / with -
 
-    if check_systemd_service "$unit_name"; then
-        local unit_location
-        unit_location=$(get_service_location "$unit_name")
-        log_success "Found pre-configured mount unit: $unit_location" >&2
-        echo "$unit_location"
-        return 0
-    else
-        log_info "No pre-configured mount unit found" >&2
-        return 1
-    fi
-}
-
-update_mount_unit_server() {
-    local unit_file="$1"
-    local nfs_server="$2"
-    local mount_point="$3"
-
-    log_info "Updating NFS server in mount unit"
-
-    # If unit is in /usr/lib, copy to /etc to modify
-    if [[ "$unit_file" == /usr/lib/* ]]; then
-        local unit_name
-        unit_name=$(basename "$unit_file")
-        local new_location="/etc/systemd/system/${unit_name}"
-
-        log_info "Copying unit to /etc/systemd/system for modification"
-        sudo mkdir -p "/etc/systemd/system"
-        sudo cp "$unit_file" "$new_location"
-        unit_file="$new_location"
-        log_success "Copied to: $unit_file"
+    # Build list of potential unit names to clean up
+    local unit_names=("$unit_name")
+    if [[ "$unit_name" != "$legacy_name" ]]; then
+        unit_names+=("$legacy_name")
     fi
 
-    # Update What= line with new NFS server
-    # This is a simplified update - actual implementation would need to parse the unit file properly
-    if sudo sed -i "s|What=.*|What=${nfs_server}:$(echo "${NFS_MOUNTS[$mount_point]}" | cut -d: -f1)|" "$unit_file"; then
-        log_success "Updated NFS server in: $unit_file"
+    # Clean up each potential unit name
+    for name in "${unit_names[@]}"; do
+        # Stop if active
+        if systemctl is-active --quiet "$name" 2>/dev/null; then
+            log_info "Stopping existing mount: $name"
+            sudo systemctl stop "$name" 2>/dev/null || true
+            cleaned=true
+        fi
+
+        # Disable if enabled
+        if systemctl is-enabled --quiet "$name" 2>/dev/null; then
+            log_info "Disabling existing mount: $name"
+            sudo systemctl disable "$name" 2>/dev/null || true
+            cleaned=true
+        fi
+
+        # Remove unit files if they exist
+        for location in "/etc/systemd/system/${name}" "/usr/lib/systemd/system/${name}"; do
+            if [[ -f "$location" ]] || [[ -L "$location" ]]; then
+                log_info "Removing old unit file: $location"
+                sudo rm -f "$location"
+                cleaned=true
+            fi
+        done
+    done
+
+    # Return whether anything was cleaned (caller will handle daemon-reload)
+    if [[ "$cleaned" == true ]]; then
         return 0
     else
-        log_error "Failed to update mount unit"
         return 1
     fi
 }
@@ -234,21 +236,13 @@ configure_nfs_mounts() {
             fi
         fi
 
-        # Check for existing mount unit
-        local existing_unit
-        if existing_unit=$(check_existing_mount_unit "$mount_point"); then
-            log_info "Using pre-configured mount unit"
+        # Clean up any old mount units first
+        cleanup_old_mount_unit "$mount_point"
 
-            # Ask if user wants to update the NFS server
-            if prompt_yes_no "Update NFS server in this mount unit?" "yes"; then
-                update_mount_unit_server "$existing_unit" "$nfs_server" "$mount_point" || continue
-            fi
-        else
-            # Create new mount unit
-            if ! create_mount_unit "$mount_point" "$nfs_server" "$export_path" "$mount_options"; then
-                log_error "Failed to create mount unit"
-                continue
-            fi
+        # Create fresh mount unit
+        if ! create_mount_unit "$mount_point" "$nfs_server" "$export_path" "$mount_options"; then
+            log_error "Failed to create mount unit"
+            continue
         fi
 
         ((configured_count++))

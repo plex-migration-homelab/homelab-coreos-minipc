@@ -4,9 +4,6 @@ type: systemd
 system:
   enabled:
     - wg-quick@wg0.service
-    - mnt-nas-media.mount
-    - mnt-nas-nextcloud.mount
-    - mnt-nas-immich.mount
     - home-directory-setup.service
   # Note: The following compose services are installed but NOT auto-enabled.
   # They must be manually enabled during setup using:
