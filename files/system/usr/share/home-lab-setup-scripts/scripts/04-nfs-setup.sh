@@ -71,29 +71,60 @@ test_nfs_export() {
 
 cleanup_old_mount_unit() {
     local mount_point="$1"
+    local cleaned=false
 
-    # Convert mount point to systemd unit name
+    # Generate the properly escaped unit name
     local unit_name
     unit_name=$(systemd-escape --path --suffix=mount "$mount_point")
 
-    # Stop and disable if unit exists and is active
-    if systemctl is-active --quiet "$unit_name" 2>/dev/null; then
-        log_info "Stopping existing mount: $unit_name"
-        sudo systemctl stop "$unit_name" 2>/dev/null || true
+    # Derive the simple unescaped name from mount point (for legacy pre-packaged units)
+    # e.g., /mnt/nas-media -> mnt-nas-media.mount
+    local legacy_name
+    legacy_name="${mount_point#/}"  # Remove leading /
+    legacy_name="${legacy_name//\//-}.mount"  # Replace / with -
+
+    # Build list of potential unit names to clean up
+    local unit_names=("$unit_name")
+    if [[ "$unit_name" != "$legacy_name" ]]; then
+        unit_names+=("$legacy_name")
     fi
 
-    if systemctl is-enabled --quiet "$unit_name" 2>/dev/null; then
-        log_info "Disabling existing mount: $unit_name"
-        sudo systemctl disable "$unit_name" 2>/dev/null || true
+    # Also check for units with literal \x2d in the filename (from previous bug)
+    local escaped_with_x2d="${legacy_name//\-/\\x2d}"
+    if [[ "$escaped_with_x2d" != "$unit_name" ]] && [[ "$escaped_with_x2d" != "$legacy_name" ]]; then
+        unit_names+=("$escaped_with_x2d")
     fi
 
-    # Remove old unit files if they exist
-    for location in "/etc/systemd/system/${unit_name}" "/usr/lib/systemd/system/${unit_name}"; do
-        if [[ -f "$location" ]]; then
-            log_info "Removing old unit file: $location"
-            sudo rm -f "$location"
+    # Clean up each potential unit name
+    for name in "${unit_names[@]}"; do
+        # Stop if active
+        if systemctl is-active --quiet "$name" 2>/dev/null; then
+            log_info "Stopping existing mount: $name"
+            sudo systemctl stop "$name" 2>/dev/null || true
+            cleaned=true
         fi
+
+        # Disable if enabled
+        if systemctl is-enabled --quiet "$name" 2>/dev/null; then
+            log_info "Disabling existing mount: $name"
+            sudo systemctl disable "$name" 2>/dev/null || true
+            cleaned=true
+        fi
+
+        # Remove unit files if they exist
+        for location in "/etc/systemd/system/${name}" "/usr/lib/systemd/system/${name}"; do
+            if [[ -f "$location" ]] || [[ -L "$location" ]]; then
+                log_info "Removing old unit file: $location"
+                sudo rm -f "$location"
+                cleaned=true
+            fi
+        done
     done
+
+    # Reload systemd if we cleaned anything to ensure internal state is updated
+    if [[ "$cleaned" == true ]]; then
+        sudo systemctl daemon-reload
+    fi
 }
 
 create_mount_unit() {
