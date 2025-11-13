@@ -48,6 +48,51 @@ func ValidatePath(path string) error {
 	return nil
 }
 
+// ValidateSafePath validates a path is absolute and contains no shell metacharacters
+// This provides defense-in-depth against command injection when paths are used in system commands
+func ValidateSafePath(path string) error {
+	// First validate it's a valid absolute path
+	if err := ValidatePath(path); err != nil {
+		return err
+	}
+
+	// Check for shell metacharacters that could be exploited
+	// Even though we use exec.Command which doesn't use a shell,
+	// this provides defense-in-depth protection
+	forbiddenChars := []string{
+		";",  // Command separator
+		"&",  // Background/AND operator
+		"|",  // Pipe operator
+		"$",  // Variable expansion
+		"`",  // Command substitution
+		"(",  // Subshell
+		")",  // Subshell
+		"<",  // Redirection
+		">",  // Redirection
+		"\n", // Newline
+		"\r", // Carriage return
+		"*",  // Glob wildcard
+		"?",  // Glob wildcard
+		"[",  // Glob wildcard
+		"]",  // Glob wildcard
+		"{",  // Brace expansion
+		"}",  // Brace expansion
+	}
+
+	for _, char := range forbiddenChars {
+		if strings.Contains(path, char) {
+			return fmt.Errorf("path contains forbidden shell metacharacter '%s': %s", char, path)
+		}
+	}
+
+	// Check for null bytes
+	if strings.Contains(path, "\x00") {
+		return fmt.Errorf("path contains null byte")
+	}
+
+	return nil
+}
+
 // ValidateUsername validates a Unix username
 func ValidateUsername(username string) error {
 	if username == "" {

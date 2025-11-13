@@ -177,7 +177,7 @@ func TestGenerateEnvContent_Media(t *testing.T) {
 }
 
 func TestGetServiceInfo(t *testing.T) {
-	cfg := config.New("")
+	cfg := newTestConfig(t)
 	cfg.Set("HOMELAB_BASE_DIR", "/test/containers")
 
 	containers := system.NewContainerManager()
@@ -205,7 +205,7 @@ func TestGetServiceInfo(t *testing.T) {
 }
 
 func TestContainerSetupServiceDirectoryUsesHomelabBase(t *testing.T) {
-	cfg := config.New("")
+	cfg := newTestConfig(t)
 	cfg.Set("HOMELAB_BASE_DIR", "/mnt/homelab")
 
 	setup := NewContainerSetup(system.NewContainerManager(), system.NewFileSystem(), cfg, ui.New(), config.NewMarkers(""))
@@ -218,7 +218,7 @@ func TestContainerSetupServiceDirectoryUsesHomelabBase(t *testing.T) {
 }
 
 func TestContainerSetupServiceDirectoryFallback(t *testing.T) {
-	cfg := config.New("")
+	cfg := newTestConfig(t)
 	cfg.Set("CONTAINERS_BASE", "/legacy")
 
 	setup := NewContainerSetup(system.NewContainerManager(), system.NewFileSystem(), cfg, ui.New(), config.NewMarkers(""))

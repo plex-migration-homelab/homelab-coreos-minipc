@@ -99,8 +99,8 @@ func (n *NFSConfigurator) PromptForNFSDetails() (host, export, mountPoint string
 		return "", "", "", fmt.Errorf("failed to prompt for NFS export: %w", err)
 	}
 
-	// Validate export path
-	if err := common.ValidatePath(export); err != nil {
+	// Validate export path (use ValidateSafePath to prevent command injection)
+	if err := common.ValidateSafePath(export); err != nil {
 		return "", "", "", fmt.Errorf("invalid export path: %w", err)
 	}
 
@@ -110,8 +110,8 @@ func (n *NFSConfigurator) PromptForNFSDetails() (host, export, mountPoint string
 		return "", "", "", fmt.Errorf("failed to prompt for mount point: %w", err)
 	}
 
-	// Validate mount point
-	if err := common.ValidatePath(mountPoint); err != nil {
+	// Validate mount point (use ValidateSafePath to prevent command injection)
+	if err := common.ValidateSafePath(mountPoint); err != nil {
 		return "", "", "", fmt.Errorf("invalid mount point: %w", err)
 	}
 

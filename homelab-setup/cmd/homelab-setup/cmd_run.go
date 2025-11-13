@@ -96,6 +96,11 @@ func applyNonInteractiveConfig(ctx *cli.SetupContext) error {
 			return fmt.Errorf("failed to set CONTAINERS_BASE: %w", err)
 		}
 		appdataPath := filepath.Join(homelabBaseDir, "appdata")
+		// Use APPDATA_BASE as per architecture document (go-rewrite-plan.md)
+		if err := ctx.Config.Set("APPDATA_BASE", appdataPath); err != nil {
+			return fmt.Errorf("failed to set APPDATA_BASE: %w", err)
+		}
+		// Also set APPDATA_PATH for backwards compatibility with legacy configs
 		if err := ctx.Config.Set("APPDATA_PATH", appdataPath); err != nil {
 			return fmt.Errorf("failed to set APPDATA_PATH: %w", err)
 		}

@@ -42,6 +42,7 @@ func validateMarkerName(name string) error {
 }
 
 // Create creates a marker file
+// This operation is idempotent - it succeeds even if the marker already exists
 func (m *Markers) Create(name string) error {
 	// Validate marker name to prevent path traversal
 	if err := validateMarkerName(name); err != nil {
@@ -61,6 +62,34 @@ func (m *Markers) Create(name string) error {
 	defer file.Close()
 
 	return nil
+}
+
+// CreateIfNotExists atomically creates a marker file only if it doesn't exist
+// Returns (wasCreated, error) where wasCreated indicates if this call created the marker
+func (m *Markers) CreateIfNotExists(name string) (bool, error) {
+	// Validate marker name to prevent path traversal
+	if err := validateMarkerName(name); err != nil {
+		return false, err
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(m.dir, 0755); err != nil {
+		return false, fmt.Errorf("failed to create marker directory: %w", err)
+	}
+
+	markerPath := filepath.Join(m.dir, name)
+	// O_CREATE|O_EXCL will fail if file already exists (atomic check-and-create)
+	file, err := os.OpenFile(markerPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		if os.IsExist(err) {
+			// Marker already exists, this is not an error
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to create marker file: %w", err)
+	}
+	defer file.Close()
+
+	return true, nil
 }
 
 // Exists checks if a marker file exists

@@ -324,7 +324,11 @@ func (c *ContainerSetup) CreateBaseEnvConfig() error {
 	puid := c.config.GetOrDefault("PUID", "1000")
 	pgid := c.config.GetOrDefault("PGID", "1000")
 	tz := c.config.GetOrDefault("TZ", "America/Chicago")
-	appdataPath := c.config.GetOrDefault("APPDATA_PATH", "/var/lib/containers/appdata")
+	// Try APPDATA_BASE first (new standard), fall back to APPDATA_PATH (legacy)
+	appdataPath := c.config.GetOrDefault("APPDATA_BASE", "")
+	if appdataPath == "" {
+		appdataPath = c.config.GetOrDefault("APPDATA_PATH", "/var/lib/containers/appdata")
+	}
 
 	// Save base config
 	if err := c.config.Set("ENV_PUID", puid); err != nil {
@@ -376,7 +380,9 @@ func (c *ContainerSetup) configureMediaEnv() error {
 		return err
 	}
 	if plexClaim != "" {
-		c.config.Set("PLEX_CLAIM_TOKEN", plexClaim)
+		if err := c.config.Set("PLEX_CLAIM_TOKEN", plexClaim); err != nil {
+			return fmt.Errorf("failed to save PLEX_CLAIM_TOKEN: %w", err)
+		}
 	}
 
 	// Jellyfin public URL
@@ -385,7 +391,9 @@ func (c *ContainerSetup) configureMediaEnv() error {
 		return err
 	}
 	if jellyfinURL != "" {
-		c.config.Set("JELLYFIN_PUBLIC_URL", jellyfinURL)
+		if err := c.config.Set("JELLYFIN_PUBLIC_URL", jellyfinURL); err != nil {
+			return fmt.Errorf("failed to save JELLYFIN_PUBLIC_URL: %w", err)
+		}
 	}
 
 	return nil
@@ -401,7 +409,9 @@ func (c *ContainerSetup) configureWebEnv() error {
 		return err
 	}
 	if overseerrAPI != "" {
-		c.config.Set("OVERSEERR_API_KEY", overseerrAPI)
+		if err := c.config.Set("OVERSEERR_API_KEY", overseerrAPI); err != nil {
+			return fmt.Errorf("failed to save OVERSEERR_API_KEY: %w", err)
+		}
 	}
 
 	return nil
@@ -419,25 +429,33 @@ func (c *ContainerSetup) configureCloudEnv() error {
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_ADMIN_USER", nextcloudAdminUser)
+	if err := c.config.Set("NEXTCLOUD_ADMIN_USER", nextcloudAdminUser); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_ADMIN_USER: %w", err)
+	}
 
 	nextcloudAdminPass, err := c.ui.PromptPasswordConfirm("Nextcloud admin password")
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_ADMIN_PASSWORD", nextcloudAdminPass)
+	if err := c.config.Set("NEXTCLOUD_ADMIN_PASSWORD", nextcloudAdminPass); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_ADMIN_PASSWORD: %w", err)
+	}
 
 	nextcloudDBPass, err := c.ui.PromptPasswordConfirm("Nextcloud database password")
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_DB_PASSWORD", nextcloudDBPass)
+	if err := c.config.Set("NEXTCLOUD_DB_PASSWORD", nextcloudDBPass); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_DB_PASSWORD: %w", err)
+	}
 
 	nextcloudDomain, err := c.ui.PromptInput("Nextcloud trusted domain (e.g., cloud.example.com)", "localhost")
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_TRUSTED_DOMAINS", nextcloudDomain)
+	if err := c.config.Set("NEXTCLOUD_TRUSTED_DOMAINS", nextcloudDomain); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_TRUSTED_DOMAINS: %w", err)
+	}
 
 	// Collabora configuration
 	c.ui.Print("")
@@ -448,11 +466,15 @@ func (c *ContainerSetup) configureCloudEnv() error {
 	if err != nil {
 		return err
 	}
-	c.config.Set("COLLABORA_PASSWORD", collaboraPass)
+	if err := c.config.Set("COLLABORA_PASSWORD", collaboraPass); err != nil {
+		return fmt.Errorf("failed to save COLLABORA_PASSWORD: %w", err)
+	}
 
 	// Escape domain for Collabora (dots need to be escaped)
 	collaboraDomain := strings.ReplaceAll(nextcloudDomain, ".", "\\.")
-	c.config.Set("COLLABORA_DOMAIN", collaboraDomain)
+	if err := c.config.Set("COLLABORA_DOMAIN", collaboraDomain); err != nil {
+		return fmt.Errorf("failed to save COLLABORA_DOMAIN: %w", err)
+	}
 
 	// Immich configuration
 	c.ui.Print("")
@@ -463,21 +485,27 @@ func (c *ContainerSetup) configureCloudEnv() error {
 	if err != nil {
 		return err
 	}
-	c.config.Set("IMMICH_DB_PASSWORD", immichDBPass)
+	if err := c.config.Set("IMMICH_DB_PASSWORD", immichDBPass); err != nil {
+		return fmt.Errorf("failed to save IMMICH_DB_PASSWORD: %w", err)
+	}
 
 	// Postgres user
 	postgresUser, err := c.ui.PromptInput("PostgreSQL username", "homelab")
 	if err != nil {
 		return err
 	}
-	c.config.Set("POSTGRES_USER", postgresUser)
+	if err := c.config.Set("POSTGRES_USER", postgresUser); err != nil {
+		return fmt.Errorf("failed to save POSTGRES_USER: %w", err)
+	}
 
 	// Redis password
 	redisPass, err := c.ui.PromptPasswordConfirm("Redis password")
 	if err != nil {
 		return err
 	}
-	c.config.Set("REDIS_PASSWORD", redisPass)
+	if err := c.config.Set("REDIS_PASSWORD", redisPass); err != nil {
+		return fmt.Errorf("failed to save REDIS_PASSWORD: %w", err)
+	}
 
 	return nil
 }
