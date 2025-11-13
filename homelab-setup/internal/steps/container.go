@@ -219,6 +219,10 @@ func (c *ContainerSetup) SelectStacks(stacks map[string]string) ([]string, error
 	for _, idx := range selectedIndices {
 		if idx == allStacksIndex {
 			c.ui.Success("Selected: All stacks")
+			// Save selected services to config before returning
+			if err := c.config.Set("SELECTED_SERVICES", strings.Join(stackNames, " ")); err != nil {
+				c.ui.Warning(fmt.Sprintf("Failed to save selected services: %v", err))
+			}
 			return stackNames, nil
 		}
 	}
