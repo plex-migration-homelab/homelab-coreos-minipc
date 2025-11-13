@@ -71,12 +71,13 @@ func TestNFSConfiguratorNew(t *testing.T) {
 // TestContainerSetup tests basic container setup functionality
 func TestContainerSetupNew(t *testing.T) {
 	containers := system.NewContainerManager()
+	fs := system.NewFileSystem()
 	testUI := ui.New()
 	tmpDir := t.TempDir()
 	markers := config.NewMarkers(tmpDir)
 	cfg := config.New(filepath.Join(tmpDir, "test.conf"))
 
-	cs := NewContainerSetup(containers, cfg, testUI, markers)
+	cs := NewContainerSetup(containers, fs, cfg, testUI, markers)
 	if cs == nil {
 		t.Fatal("Expected non-nil ContainerSetup")
 	}

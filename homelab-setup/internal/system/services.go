@@ -206,3 +206,25 @@ func (sm *ServiceManager) ListUnits(pattern string) ([]string, error) {
 
 	return units, nil
 }
+
+// EnableService enables a service (alias for Enable for consistency)
+func (sm *ServiceManager) EnableService(serviceName string) error {
+	return sm.Enable(serviceName)
+}
+
+// StartService starts a service (alias for Start for consistency)
+func (sm *ServiceManager) StartService(serviceName string) error {
+	return sm.Start(serviceName)
+}
+
+// RunCommand runs a shell command with the given arguments
+func (sm *ServiceManager) RunCommand(command string, args ...string) error {
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to run command %s: %w", command, err)
+	}
+	return nil
+}
