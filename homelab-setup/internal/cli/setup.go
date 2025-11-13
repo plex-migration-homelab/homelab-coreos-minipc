@@ -199,6 +199,15 @@ func (sm *StepManager) RunStep(shortName string) error {
 
 // Individual step runners
 func (sm *StepManager) runPreflight() error {
+	// Check if already completed
+	if sm.IsStepComplete("preflight-complete") {
+		sm.ui.Info("Pre-flight check already completed")
+		rerun, err := sm.ui.PromptYesNo("Run again?", false)
+		if err != nil || !rerun {
+			return nil
+		}
+	}
+
 	// Use the RunAll method that exists in PreflightChecker
 	return sm.preflight.RunAll()
 }
@@ -241,46 +250,9 @@ func (sm *StepManager) runWireGuard() error {
 		}
 	}
 
-	// Ask if they want to set up WireGuard
-	setup, err := sm.wireguard.PromptForWireGuard()
-	if err != nil {
-		return err
-	}
-
-	if !setup {
-		sm.ui.Info("Skipping WireGuard setup")
-		return nil
-	}
-
-	// Check if WireGuard is installed
-	if err := sm.wireguard.CheckWireGuardInstalled(); err != nil {
-		return err
-	}
-
-	// Generate keys
-	privateKey, publicKey, err := sm.wireguard.GenerateKeys()
-	if err != nil {
-		return err
-	}
-
-	// Prompt for configuration
-	cfg, err := sm.wireguard.PromptForConfig(publicKey)
-	if err != nil {
-		return err
-	}
-
-	// Write configuration
-	if err := sm.wireguard.WriteConfig(cfg, privateKey); err != nil {
-		return err
-	}
-
-	// Enable service
-	if err := sm.wireguard.EnableService(cfg.InterfaceName); err != nil {
-		return err
-	}
-
-	sm.ui.Success("WireGuard setup completed successfully")
-	return nil
+	// Use the Run method that exists in WireGuardSetup
+	// This handles all the logic including prompting, key generation, config writing, etc.
+	return sm.wireguard.Run()
 }
 
 func (sm *StepManager) runNFS() error {

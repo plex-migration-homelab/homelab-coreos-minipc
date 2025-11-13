@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/fatih/color"
 )
+
+// ErrExit is returned when the user chooses to exit the menu
+var ErrExit = errors.New("exit")
 
 // Menu provides an interactive menu interface
 type Menu struct {
@@ -19,11 +22,11 @@ func NewMenu(ctx *SetupContext) *Menu {
 	return &Menu{ctx: ctx}
 }
 
-// clearScreen clears the terminal screen
+// clearScreen clears the terminal screen using ANSI escape codes
+// This is more portable than calling the 'clear' command
 func clearScreen() {
-	cmd := exec.Command("clear")
-	cmd.Stdout = os.Stdout
-	cmd.Run()
+	// ANSI escape codes: \033[2J clears screen, \033[H moves cursor to home
+	fmt.Print("\033[2J\033[H")
 }
 
 // Show displays the main menu and handles user input
@@ -40,7 +43,7 @@ func (m *Menu) Show() error {
 		choice = strings.ToUpper(strings.TrimSpace(choice))
 
 		if err := m.handleChoice(choice); err != nil {
-			if err.Error() == "exit" {
+			if errors.Is(err, ErrExit) {
 				return nil
 			}
 			m.ctx.UI.Error(fmt.Sprintf("%v", err))
@@ -144,7 +147,7 @@ func (m *Menu) handleChoice(choice string) error {
 	case "H":
 		return m.showHelp()
 	case "X":
-		return fmt.Errorf("exit")
+		return ErrExit
 	default:
 		return fmt.Errorf("invalid choice: %s", choice)
 	}
