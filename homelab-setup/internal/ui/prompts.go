@@ -63,6 +63,10 @@ func (u *UI) PromptPassword(prompt string) (string, error) {
 
 // PromptPasswordConfirm prompts for password with confirmation
 func (u *UI) PromptPasswordConfirm(prompt string) (string, error) {
+	if u.nonInteractive {
+		return "", fmt.Errorf("non-interactive mode does not support password confirmation prompts: %s", prompt)
+	}
+
 	for {
 		password1, err := u.PromptPassword(prompt)
 		if err != nil {

@@ -24,6 +24,34 @@ type ContainerSetup struct {
 	markers    *config.Markers
 }
 
+var (
+	stackRequiredConfigKeys = map[string][]string{
+		"cloud": {
+			"NEXTCLOUD_ADMIN_PASSWORD",
+			"NEXTCLOUD_DB_PASSWORD",
+			"COLLABORA_PASSWORD",
+			"IMMICH_DB_PASSWORD",
+			"REDIS_PASSWORD",
+		},
+	}
+
+	configFlagHints = map[string]string{
+		"NEXTCLOUD_ADMIN_PASSWORD": "--nextcloud-admin-password",
+		"NEXTCLOUD_DB_PASSWORD":    "--nextcloud-db-password",
+		"COLLABORA_PASSWORD":       "--collabora-password",
+		"IMMICH_DB_PASSWORD":       "--immich-db-password",
+		"REDIS_PASSWORD":           "--redis-password",
+	}
+
+	configValueDescriptions = map[string]string{
+		"NEXTCLOUD_ADMIN_PASSWORD": "Nextcloud admin password",
+		"NEXTCLOUD_DB_PASSWORD":    "Nextcloud database password",
+		"COLLABORA_PASSWORD":       "Collabora admin password",
+		"IMMICH_DB_PASSWORD":       "Immich database password",
+		"REDIS_PASSWORD":           "Redis password",
+	}
+)
+
 // NewContainerSetup creates a new ContainerSetup instance
 func NewContainerSetup(containers *system.ContainerManager, fs *system.FileSystem, cfg *config.Config, ui *ui.UI, markers *config.Markers) *ContainerSetup {
 	return &ContainerSetup{
@@ -102,10 +130,10 @@ func (c *ContainerSetup) DiscoverStacks(templateDir string) (map[string]string, 
 
 	// Exclude patterns
 	excludePatterns := []string{
-		".*",           // Hidden files
-		"*.example",    // Example files
-		"README*",      // Documentation files
-		"*.md",         // Markdown files
+		".*",        // Hidden files
+		"*.example", // Example files
+		"README*",   // Documentation files
+		"*.md",      // Markdown files
 	}
 
 	entries, err := os.ReadDir(templateDir)
@@ -352,6 +380,67 @@ func (c *ContainerSetup) ConfigureStackEnv(serviceName string) error {
 	}
 }
 
+// ensureNonInteractiveRequirements validates required config exists before continuing
+func (c *ContainerSetup) ensureNonInteractiveRequirements(selectedStacks []string) error {
+	if !c.ui.IsNonInteractive() {
+		return nil
+	}
+
+	for _, stack := range selectedStacks {
+		keys, ok := stackRequiredConfigKeys[stack]
+		if !ok {
+			continue
+		}
+		for _, key := range keys {
+			if value := c.config.GetOrDefault(key, ""); value == "" {
+				desc := configValueDescriptions[key]
+				if desc == "" {
+					desc = key
+				}
+				flag := configFlagHints[key]
+				if flag != "" {
+					return fmt.Errorf("non-interactive mode requires %s (set via %s or config key %s)", desc, flag, key)
+				}
+				return fmt.Errorf("non-interactive mode requires config value %s", key)
+			}
+		}
+	}
+
+	return nil
+}
+
+// promptOrConfigValue returns a config value or prompts the user when interactive
+func (c *ContainerSetup) promptOrConfigValue(key, prompt, defaultValue string, required bool, secret bool) (string, error) {
+	if c.ui.IsNonInteractive() {
+		value := c.config.GetOrDefault(key, defaultValue)
+		if required && value == "" {
+			desc := configValueDescriptions[key]
+			if desc == "" {
+				desc = prompt
+			}
+			return "", fmt.Errorf("non-interactive mode requires %s (config key %s)", desc, key)
+		}
+		return value, nil
+	}
+
+	var (
+		value string
+		err   error
+	)
+	if secret {
+		value, err = c.ui.PromptPasswordConfirm(prompt)
+	} else {
+		value, err = c.ui.PromptInput(prompt, defaultValue)
+	}
+	if err != nil {
+		return "", err
+	}
+	if required && value == "" {
+		return "", fmt.Errorf("%s is required", prompt)
+	}
+	return value, nil
+}
+
 // configureMediaEnv configures media stack environment
 func (c *ContainerSetup) configureMediaEnv() error {
 	c.ui.Step("Configuring Media Stack Environment")
@@ -359,21 +448,25 @@ func (c *ContainerSetup) configureMediaEnv() error {
 	// Get Plex claim token
 	c.ui.Info("Plex Setup:")
 	c.ui.Info("  Get your claim token from: https://plex.tv/claim")
-	plexClaim, err := c.ui.PromptInput("Plex claim token (optional)", "")
+	plexClaim, err := c.promptOrConfigValue("PLEX_CLAIM_TOKEN", "Plex claim token (optional)", "", false, false)
 	if err != nil {
 		return err
 	}
 	if plexClaim != "" {
-		c.config.Set("PLEX_CLAIM_TOKEN", plexClaim)
+		if err := c.config.Set("PLEX_CLAIM_TOKEN", plexClaim); err != nil {
+			return fmt.Errorf("failed to save PLEX_CLAIM_TOKEN: %w", err)
+		}
 	}
 
 	// Jellyfin public URL
-	jellyfinURL, err := c.ui.PromptInput("Jellyfin public URL (optional)", "")
+	jellyfinURL, err := c.promptOrConfigValue("JELLYFIN_PUBLIC_URL", "Jellyfin public URL (optional)", "", false, false)
 	if err != nil {
 		return err
 	}
 	if jellyfinURL != "" {
-		c.config.Set("JELLYFIN_PUBLIC_URL", jellyfinURL)
+		if err := c.config.Set("JELLYFIN_PUBLIC_URL", jellyfinURL); err != nil {
+			return fmt.Errorf("failed to save JELLYFIN_PUBLIC_URL: %w", err)
+		}
 	}
 
 	return nil
@@ -384,12 +477,14 @@ func (c *ContainerSetup) configureWebEnv() error {
 	c.ui.Step("Configuring Web Stack Environment")
 
 	// Overseerr API key (optional)
-	overseerrAPI, err := c.ui.PromptInput("Overseerr API key (optional, can configure later)", "")
+	overseerrAPI, err := c.promptOrConfigValue("OVERSEERR_API_KEY", "Overseerr API key (optional, can configure later)", "", false, false)
 	if err != nil {
 		return err
 	}
 	if overseerrAPI != "" {
-		c.config.Set("OVERSEERR_API_KEY", overseerrAPI)
+		if err := c.config.Set("OVERSEERR_API_KEY", overseerrAPI); err != nil {
+			return fmt.Errorf("failed to save OVERSEERR_API_KEY: %w", err)
+		}
 	}
 
 	return nil
@@ -403,69 +498,87 @@ func (c *ContainerSetup) configureCloudEnv() error {
 	c.ui.Info("Nextcloud Setup:")
 	c.ui.Print("")
 
-	nextcloudAdminUser, err := c.ui.PromptInput("Nextcloud admin username", "admin")
+	nextcloudAdminUser, err := c.promptOrConfigValue("NEXTCLOUD_ADMIN_USER", "Nextcloud admin username", "admin", false, false)
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_ADMIN_USER", nextcloudAdminUser)
+	if err := c.config.Set("NEXTCLOUD_ADMIN_USER", nextcloudAdminUser); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_ADMIN_USER: %w", err)
+	}
 
-	nextcloudAdminPass, err := c.ui.PromptPasswordConfirm("Nextcloud admin password")
+	nextcloudAdminPass, err := c.promptOrConfigValue("NEXTCLOUD_ADMIN_PASSWORD", "Nextcloud admin password", "", true, true)
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_ADMIN_PASSWORD", nextcloudAdminPass)
+	if err := c.config.Set("NEXTCLOUD_ADMIN_PASSWORD", nextcloudAdminPass); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_ADMIN_PASSWORD: %w", err)
+	}
 
-	nextcloudDBPass, err := c.ui.PromptPasswordConfirm("Nextcloud database password")
+	nextcloudDBPass, err := c.promptOrConfigValue("NEXTCLOUD_DB_PASSWORD", "Nextcloud database password", "", true, true)
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_DB_PASSWORD", nextcloudDBPass)
+	if err := c.config.Set("NEXTCLOUD_DB_PASSWORD", nextcloudDBPass); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_DB_PASSWORD: %w", err)
+	}
 
-	nextcloudDomain, err := c.ui.PromptInput("Nextcloud trusted domain (e.g., cloud.example.com)", "localhost")
+	nextcloudDomain, err := c.promptOrConfigValue("NEXTCLOUD_TRUSTED_DOMAINS", "Nextcloud trusted domain (e.g., cloud.example.com)", "localhost", false, false)
 	if err != nil {
 		return err
 	}
-	c.config.Set("NEXTCLOUD_TRUSTED_DOMAINS", nextcloudDomain)
+	if err := c.config.Set("NEXTCLOUD_TRUSTED_DOMAINS", nextcloudDomain); err != nil {
+		return fmt.Errorf("failed to save NEXTCLOUD_TRUSTED_DOMAINS: %w", err)
+	}
 
 	// Collabora configuration
 	c.ui.Print("")
 	c.ui.Info("Collabora Setup:")
 	c.ui.Print("")
 
-	collaboraPass, err := c.ui.PromptPasswordConfirm("Collabora admin password")
+	collaboraPass, err := c.promptOrConfigValue("COLLABORA_PASSWORD", "Collabora admin password", "", true, true)
 	if err != nil {
 		return err
 	}
-	c.config.Set("COLLABORA_PASSWORD", collaboraPass)
+	if err := c.config.Set("COLLABORA_PASSWORD", collaboraPass); err != nil {
+		return fmt.Errorf("failed to save COLLABORA_PASSWORD: %w", err)
+	}
 
 	// Escape domain for Collabora (dots need to be escaped)
 	collaboraDomain := strings.ReplaceAll(nextcloudDomain, ".", "\\.")
-	c.config.Set("COLLABORA_DOMAIN", collaboraDomain)
+	if err := c.config.Set("COLLABORA_DOMAIN", collaboraDomain); err != nil {
+		return fmt.Errorf("failed to save COLLABORA_DOMAIN: %w", err)
+	}
 
 	// Immich configuration
 	c.ui.Print("")
 	c.ui.Info("Immich Setup:")
 	c.ui.Print("")
 
-	immichDBPass, err := c.ui.PromptPasswordConfirm("Immich database password")
+	immichDBPass, err := c.promptOrConfigValue("IMMICH_DB_PASSWORD", "Immich database password", "", true, true)
 	if err != nil {
 		return err
 	}
-	c.config.Set("IMMICH_DB_PASSWORD", immichDBPass)
+	if err := c.config.Set("IMMICH_DB_PASSWORD", immichDBPass); err != nil {
+		return fmt.Errorf("failed to save IMMICH_DB_PASSWORD: %w", err)
+	}
 
 	// Postgres user
-	postgresUser, err := c.ui.PromptInput("PostgreSQL username", "homelab")
+	postgresUser, err := c.promptOrConfigValue("POSTGRES_USER", "PostgreSQL username", "homelab", false, false)
 	if err != nil {
 		return err
 	}
-	c.config.Set("POSTGRES_USER", postgresUser)
+	if err := c.config.Set("POSTGRES_USER", postgresUser); err != nil {
+		return fmt.Errorf("failed to save POSTGRES_USER: %w", err)
+	}
 
 	// Redis password
-	redisPass, err := c.ui.PromptPasswordConfirm("Redis password")
+	redisPass, err := c.promptOrConfigValue("REDIS_PASSWORD", "Redis password", "", true, true)
 	if err != nil {
 		return err
 	}
-	c.config.Set("REDIS_PASSWORD", redisPass)
+	if err := c.config.Set("REDIS_PASSWORD", redisPass); err != nil {
+		return fmt.Errorf("failed to save REDIS_PASSWORD: %w", err)
+	}
 
 	return nil
 }
@@ -621,6 +734,10 @@ func (c *ContainerSetup) Run() error {
 	selectedStacks, err := c.SelectStacks(stacks)
 	if err != nil {
 		return fmt.Errorf("failed to select stacks: %w", err)
+	}
+
+	if err := c.ensureNonInteractiveRequirements(selectedStacks); err != nil {
+		return err
 	}
 
 	// Copy templates

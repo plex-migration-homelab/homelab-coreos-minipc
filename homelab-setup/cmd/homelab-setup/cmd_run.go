@@ -9,11 +9,22 @@ import (
 
 var (
 	// Flags for non-interactive mode
-	nonInteractive bool
-	setupUser      string
-	nfsServer      string
-	homelabBaseDir string
-	skipWireguard  bool
+	nonInteractive     bool
+	setupUser          string
+	nfsServer          string
+	homelabBaseDir     string
+	skipWireguard      bool
+	plexClaimToken     string
+	jellyfinURL        string
+	overseerrAPI       string
+	nextcloudAdmin     string
+	nextcloudAdminPass string
+	nextcloudDBPass    string
+	nextcloudDomain    string
+	collaboraPass      string
+	immichDBPass       string
+	postgresUser       string
+	redisPass          string
 )
 
 var runCmd = &cobra.Command{
@@ -41,6 +52,17 @@ func init() {
 	runCmd.Flags().StringVar(&nfsServer, "nfs-server", "", "NFS server address")
 	runCmd.Flags().StringVar(&homelabBaseDir, "homelab-base-dir", "", "Base directory for homelab")
 	runCmd.Flags().BoolVar(&skipWireguard, "skip-wireguard", false, "Skip WireGuard setup")
+	runCmd.Flags().StringVar(&plexClaimToken, "plex-token", "", "Plex claim token for media stack")
+	runCmd.Flags().StringVar(&jellyfinURL, "jellyfin-url", "", "Jellyfin public URL")
+	runCmd.Flags().StringVar(&overseerrAPI, "overseerr-api-key", "", "Overseerr API key")
+	runCmd.Flags().StringVar(&nextcloudAdmin, "nextcloud-admin-user", "", "Nextcloud admin username")
+	runCmd.Flags().StringVar(&nextcloudAdminPass, "nextcloud-admin-password", "", "Nextcloud admin password")
+	runCmd.Flags().StringVar(&nextcloudDBPass, "nextcloud-db-password", "", "Nextcloud database password")
+	runCmd.Flags().StringVar(&nextcloudDomain, "nextcloud-domain", "", "Nextcloud trusted domain")
+	runCmd.Flags().StringVar(&collaboraPass, "collabora-password", "", "Collabora admin password")
+	runCmd.Flags().StringVar(&immichDBPass, "immich-db-password", "", "Immich database password")
+	runCmd.Flags().StringVar(&postgresUser, "postgres-user", "", "PostgreSQL username for Immich stack")
+	runCmd.Flags().StringVar(&redisPass, "redis-password", "", "Redis password for Immich stack")
 
 	rootCmd.AddCommand(runCmd)
 }
@@ -90,6 +112,72 @@ func applyNonInteractiveConfig(ctx *cli.SetupContext) error {
 	if homelabBaseDir != "" {
 		if err := ctx.Config.Set("HOMELAB_BASE_DIR", homelabBaseDir); err != nil {
 			return fmt.Errorf("failed to set HOMELAB_BASE_DIR: %w", err)
+		}
+	}
+
+	if plexClaimToken != "" {
+		if err := ctx.Config.Set("PLEX_CLAIM_TOKEN", plexClaimToken); err != nil {
+			return fmt.Errorf("failed to set PLEX_CLAIM_TOKEN: %w", err)
+		}
+	}
+
+	if jellyfinURL != "" {
+		if err := ctx.Config.Set("JELLYFIN_PUBLIC_URL", jellyfinURL); err != nil {
+			return fmt.Errorf("failed to set JELLYFIN_PUBLIC_URL: %w", err)
+		}
+	}
+
+	if overseerrAPI != "" {
+		if err := ctx.Config.Set("OVERSEERR_API_KEY", overseerrAPI); err != nil {
+			return fmt.Errorf("failed to set OVERSEERR_API_KEY: %w", err)
+		}
+	}
+
+	if nextcloudAdmin != "" {
+		if err := ctx.Config.Set("NEXTCLOUD_ADMIN_USER", nextcloudAdmin); err != nil {
+			return fmt.Errorf("failed to set NEXTCLOUD_ADMIN_USER: %w", err)
+		}
+	}
+
+	if nextcloudAdminPass != "" {
+		if err := ctx.Config.Set("NEXTCLOUD_ADMIN_PASSWORD", nextcloudAdminPass); err != nil {
+			return fmt.Errorf("failed to set NEXTCLOUD_ADMIN_PASSWORD: %w", err)
+		}
+	}
+
+	if nextcloudDBPass != "" {
+		if err := ctx.Config.Set("NEXTCLOUD_DB_PASSWORD", nextcloudDBPass); err != nil {
+			return fmt.Errorf("failed to set NEXTCLOUD_DB_PASSWORD: %w", err)
+		}
+	}
+
+	if nextcloudDomain != "" {
+		if err := ctx.Config.Set("NEXTCLOUD_TRUSTED_DOMAINS", nextcloudDomain); err != nil {
+			return fmt.Errorf("failed to set NEXTCLOUD_TRUSTED_DOMAINS: %w", err)
+		}
+	}
+
+	if collaboraPass != "" {
+		if err := ctx.Config.Set("COLLABORA_PASSWORD", collaboraPass); err != nil {
+			return fmt.Errorf("failed to set COLLABORA_PASSWORD: %w", err)
+		}
+	}
+
+	if immichDBPass != "" {
+		if err := ctx.Config.Set("IMMICH_DB_PASSWORD", immichDBPass); err != nil {
+			return fmt.Errorf("failed to set IMMICH_DB_PASSWORD: %w", err)
+		}
+	}
+
+	if postgresUser != "" {
+		if err := ctx.Config.Set("POSTGRES_USER", postgresUser); err != nil {
+			return fmt.Errorf("failed to set POSTGRES_USER: %w", err)
+		}
+	}
+
+	if redisPass != "" {
+		if err := ctx.Config.Set("REDIS_PASSWORD", redisPass); err != nil {
+			return fmt.Errorf("failed to set REDIS_PASSWORD: %w", err)
 		}
 	}
 
