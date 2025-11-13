@@ -333,6 +333,11 @@ func (d *DirectorySetup) Run() error {
 		return fmt.Errorf("failed to save containers base directory: %w", err)
 	}
 	appdataPath := filepath.Join(baseDir, "appdata")
+	// Use APPDATA_BASE as per architecture document (go-rewrite-plan.md)
+	if err := d.config.Set("APPDATA_BASE", appdataPath); err != nil {
+		return fmt.Errorf("failed to save appdata base: %w", err)
+	}
+	// Also set APPDATA_PATH for backwards compatibility with legacy configs
 	if err := d.config.Set("APPDATA_PATH", appdataPath); err != nil {
 		return fmt.Errorf("failed to save appdata path: %w", err)
 	}
