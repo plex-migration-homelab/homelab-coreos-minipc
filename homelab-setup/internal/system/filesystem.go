@@ -1,10 +1,12 @@
 package system
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -100,6 +102,16 @@ func (fs *FileSystem) FileExists(path string) (bool, error) {
 	if os.IsNotExist(err) {
 		return false, nil
 	}
+	if errors.Is(err, os.ErrPermission) {
+		cmd := exec.Command("sudo", "-n", "test", "-e", path)
+		if runErr := cmd.Run(); runErr == nil {
+			return true, nil
+		} else if exitErr, ok := runErr.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return false, nil
+		} else {
+			return false, fmt.Errorf("failed to check if file exists %s: %w", path, runErr)
+		}
+	}
 	return false, fmt.Errorf("failed to check if file exists %s: %w", path, err)
 }
 
@@ -142,11 +154,23 @@ func (fs *FileSystem) GetOwner(path string) (string, error) {
 // GetPermissions returns the permissions of a file or directory
 func (fs *FileSystem) GetPermissions(path string) (os.FileMode, error) {
 	info, err := os.Stat(path)
-	if err != nil {
-		return 0, fmt.Errorf("failed to stat %s: %w", path, err)
+	if err == nil {
+		return info.Mode().Perm(), nil
 	}
-
-	return info.Mode().Perm(), nil
+	if errors.Is(err, os.ErrPermission) {
+		cmd := exec.Command("sudo", "-n", "stat", "-c", "%a", path)
+		output, runErr := cmd.CombinedOutput()
+		if runErr != nil {
+			return 0, fmt.Errorf("failed to stat %s: %w\nOutput: %s", path, runErr, string(output))
+		}
+		permStr := strings.TrimSpace(string(output))
+		permVal, parseErr := strconv.ParseUint(permStr, 8, 32)
+		if parseErr != nil {
+			return 0, fmt.Errorf("failed to parse permissions for %s: %w", path, parseErr)
+		}
+		return os.FileMode(permVal), nil
+	}
+	return 0, fmt.Errorf("failed to stat %s: %w", path, err)
 }
 
 // RemoveDirectory removes a directory and all its contents
