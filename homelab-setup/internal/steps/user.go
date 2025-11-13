@@ -9,6 +9,8 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
+const defaultTimezone = "America/Chicago"
+
 // UserConfigurator handles user and group configuration
 type UserConfigurator struct {
 	users   *system.UserManager
@@ -228,8 +230,16 @@ func (u *UserConfigurator) SetupShell(username string) error {
 func (u *UserConfigurator) GetTimezoneInfo() error {
 	tz, err := system.GetTimezone()
 	if err != nil {
-		fallback := u.config.GetOrDefault("TZ", "America/Chicago")
-		u.ui.Warning(fmt.Sprintf("Could not determine timezone automatically (defaulting to %s): %v", fallback, err))
+		if loadErr := u.config.Load(); loadErr != nil {
+			u.ui.Warning(fmt.Sprintf("Could not load existing timezone configuration (defaulting to %s): %v", defaultTimezone, loadErr))
+		}
+
+		fallback := u.config.GetOrDefault("TZ", "")
+		if fallback == "" {
+			fallback = defaultTimezone
+		}
+
+		u.ui.Warning(fmt.Sprintf("Could not determine timezone automatically (using %s): %v", fallback, err))
 		tz = fallback
 		u.ui.Infof("Using timezone: %s", tz)
 	} else {

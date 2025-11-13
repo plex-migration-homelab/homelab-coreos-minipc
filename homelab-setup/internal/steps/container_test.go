@@ -178,7 +178,9 @@ func TestGenerateEnvContent_Media(t *testing.T) {
 
 func TestGetServiceInfo(t *testing.T) {
 	cfg := newTestConfig(t)
-	cfg.Set("CONTAINERS_BASE", "/test/containers")
+	if err := cfg.Set("CONTAINERS_BASE", "/test/containers"); err != nil {
+		t.Fatalf("failed to set CONTAINERS_BASE: %v", err)
+	}
 
 	containers := system.NewContainerManager()
 	fs := system.NewFileSystem()
