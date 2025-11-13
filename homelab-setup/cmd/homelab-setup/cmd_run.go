@@ -46,7 +46,8 @@ func init() {
 }
 
 func runSetup(cmd *cobra.Command, args []string) error {
-	ctx, err := cli.NewSetupContext()
+	// Create setup context with non-interactive mode if requested
+	ctx, err := cli.NewSetupContextWithOptions(nonInteractive)
 	if err != nil {
 		return fmt.Errorf("failed to initialize setup context: %w", err)
 	}
@@ -56,6 +57,7 @@ func runSetup(cmd *cobra.Command, args []string) error {
 		if err := applyNonInteractiveConfig(ctx); err != nil {
 			return err
 		}
+		ctx.UI.Info("Running in non-interactive mode")
 	}
 
 	step := args[0]

@@ -19,6 +19,11 @@ type SetupContext struct {
 
 // NewSetupContext creates a new SetupContext with all dependencies initialized
 func NewSetupContext() (*SetupContext, error) {
+	return NewSetupContextWithOptions(false)
+}
+
+// NewSetupContextWithOptions creates a new SetupContext with custom options
+func NewSetupContextWithOptions(nonInteractive bool) (*SetupContext, error) {
 	// Initialize configuration
 	cfg := config.New("")
 	if err := cfg.Load(); err != nil {
@@ -30,6 +35,7 @@ func NewSetupContext() (*SetupContext, error) {
 
 	// Initialize UI
 	uiInstance := ui.New()
+	uiInstance.SetNonInteractive(nonInteractive)
 
 	// Initialize system components
 	packages := system.NewPackageManager()
