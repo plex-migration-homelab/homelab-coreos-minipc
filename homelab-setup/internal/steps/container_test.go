@@ -10,10 +10,16 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
+func newTestConfig(t *testing.T) *config.Config {
+	t.Helper()
+	configPath := filepath.Join(t.TempDir(), "config.conf")
+	return config.New(configPath)
+}
+
 func TestNewContainerSetup(t *testing.T) {
 	containers := system.NewContainerManager()
 	fs := system.NewFileSystem()
-	cfg := config.New("")
+	cfg := newTestConfig(t)
 	uiInstance := ui.New()
 	markers := config.NewMarkers("")
 
@@ -66,7 +72,7 @@ func TestCountYAMLFiles(t *testing.T) {
 	// Test counting
 	containers := system.NewContainerManager()
 	fs := system.NewFileSystem()
-	cfg := config.New("")
+	cfg := newTestConfig(t)
 	uiInstance := ui.New()
 	markers := config.NewMarkers("")
 
@@ -85,11 +91,19 @@ func TestCountYAMLFiles(t *testing.T) {
 }
 
 func TestGenerateEnvContent(t *testing.T) {
-	cfg := config.New("")
-	cfg.Set("ENV_PUID", "1001")
-	cfg.Set("ENV_PGID", "1002")
-	cfg.Set("ENV_TZ", "America/New_York")
-	cfg.Set("ENV_APPDATA_PATH", "/custom/path")
+	cfg := newTestConfig(t)
+	if err := cfg.Set("ENV_PUID", "1001"); err != nil {
+		t.Fatalf("failed to set ENV_PUID: %v", err)
+	}
+	if err := cfg.Set("ENV_PGID", "1002"); err != nil {
+		t.Fatalf("failed to set ENV_PGID: %v", err)
+	}
+	if err := cfg.Set("ENV_TZ", "America/New_York"); err != nil {
+		t.Fatalf("failed to set ENV_TZ: %v", err)
+	}
+	if err := cfg.Set("ENV_APPDATA_PATH", "/custom/path"); err != nil {
+		t.Fatalf("failed to set ENV_APPDATA_PATH: %v", err)
+	}
 
 	containers := system.NewContainerManager()
 	fs := system.NewFileSystem()
@@ -121,13 +135,25 @@ func TestGenerateEnvContent(t *testing.T) {
 }
 
 func TestGenerateEnvContent_Media(t *testing.T) {
-	cfg := config.New("")
-	cfg.Set("ENV_PUID", "1000")
-	cfg.Set("ENV_PGID", "1000")
-	cfg.Set("ENV_TZ", "UTC")
-	cfg.Set("ENV_APPDATA_PATH", "/data")
-	cfg.Set("PLEX_CLAIM_TOKEN", "claim-test-token")
-	cfg.Set("JELLYFIN_PUBLIC_URL", "https://jellyfin.example.com")
+	cfg := newTestConfig(t)
+	if err := cfg.Set("ENV_PUID", "1000"); err != nil {
+		t.Fatalf("failed to set ENV_PUID: %v", err)
+	}
+	if err := cfg.Set("ENV_PGID", "1000"); err != nil {
+		t.Fatalf("failed to set ENV_PGID: %v", err)
+	}
+	if err := cfg.Set("ENV_TZ", "UTC"); err != nil {
+		t.Fatalf("failed to set ENV_TZ: %v", err)
+	}
+	if err := cfg.Set("ENV_APPDATA_PATH", "/data"); err != nil {
+		t.Fatalf("failed to set ENV_APPDATA_PATH: %v", err)
+	}
+	if err := cfg.Set("PLEX_CLAIM_TOKEN", "claim-test-token"); err != nil {
+		t.Fatalf("failed to set PLEX_CLAIM_TOKEN: %v", err)
+	}
+	if err := cfg.Set("JELLYFIN_PUBLIC_URL", "https://jellyfin.example.com"); err != nil {
+		t.Fatalf("failed to set JELLYFIN_PUBLIC_URL: %v", err)
+	}
 
 	containers := system.NewContainerManager()
 	fs := system.NewFileSystem()

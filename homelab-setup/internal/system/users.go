@@ -238,13 +238,12 @@ func GetTimezone() (string, error) {
 	cmd := exec.Command("timedatectl", "show", "--property=Timezone", "--value")
 	output, err := cmd.Output()
 	if err != nil {
-		// Fallback to a default
-		return "America/Chicago", nil
+		return "", fmt.Errorf("timedatectl failed: %w", err)
 	}
 
 	timezone := strings.TrimSpace(string(output))
 	if timezone == "" {
-		return "America/Chicago", nil
+		return "", fmt.Errorf("timedatectl returned an empty timezone")
 	}
 
 	return timezone, nil

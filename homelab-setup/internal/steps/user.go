@@ -2,12 +2,15 @@ package steps
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/common"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
+
+const defaultTimezone = "America/Chicago"
 
 // UserConfigurator handles user and group configuration
 type UserConfigurator struct {
@@ -50,6 +53,37 @@ func (u *UserConfigurator) PromptForUser() (string, error) {
 	}
 
 	return username, nil
+}
+
+// getConfiguredUsername returns a validated username from existing configuration.
+// It prefers HOMELAB_USER and falls back to SETUP_USER for backwards compatibility.
+func (u *UserConfigurator) getConfiguredUsername() (string, error) {
+	configKeys := []string{"HOMELAB_USER", "SETUP_USER"}
+
+	for _, key := range configKeys {
+		value := strings.TrimSpace(u.config.GetOrDefault(key, ""))
+		if value == "" {
+			continue
+		}
+
+		if err := common.ValidateUsername(value); err != nil {
+			u.ui.Warningf("Ignoring %s=%s: %v", key, value, err)
+			continue
+		}
+
+		if key == "HOMELAB_USER" {
+			u.ui.Infof("Using pre-configured homelab user: %s", value)
+			return value, nil
+		}
+
+		u.ui.Infof("Using SETUP_USER (%s) for homelab user", value)
+		if err := u.config.Set("HOMELAB_USER", value); err != nil {
+			return "", fmt.Errorf("failed to persist HOMELAB_USER: %w", err)
+		}
+		return value, nil
+	}
+
+	return "", nil
 }
 
 // ValidateUser checks if a user exists and can be used for homelab
@@ -228,30 +262,45 @@ func (u *UserConfigurator) SetupShell(username string) error {
 func (u *UserConfigurator) GetTimezoneInfo() error {
 	tz, err := system.GetTimezone()
 	if err != nil {
-		u.ui.Warning(fmt.Sprintf("Could not determine timezone: %v", err))
-		return nil
-	}
+		if loadErr := u.config.Load(); loadErr != nil {
+			u.ui.Warning(fmt.Sprintf("Could not load existing timezone configuration (defaulting to %s): %v", defaultTimezone, loadErr))
+		}
 
-	u.ui.Infof("System timezone: %s", tz)
+		fallback := u.config.GetOrDefault("TZ", "")
+		if fallback == "" {
+			fallback = defaultTimezone
+		}
+
+		u.ui.Warning(fmt.Sprintf("Could not determine timezone automatically (using %s): %v", fallback, err))
+		tz = fallback
+		u.ui.Infof("Using timezone: %s", tz)
+	} else {
+		u.ui.Infof("System timezone: %s", tz)
+	}
 
 	// Save timezone to config for later use
 	if err := u.config.Set("TIMEZONE", tz); err != nil {
 		return fmt.Errorf("failed to save timezone to config: %w", err)
 	}
+	if err := u.config.Set("TZ", tz); err != nil {
+		return fmt.Errorf("failed to save TZ to config: %w", err)
+	}
 
 	return nil
 }
 
+const userCompletionMarker = "user-setup-complete"
+
 // Run executes the user configuration step
 func (u *UserConfigurator) Run() error {
-	// Check if already completed
-	exists, err := u.markers.Exists("user-configured")
+	// Check if already completed (and migrate legacy markers)
+	completed, err := ensureCanonicalMarker(u.markers, userCompletionMarker, "user-configured")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
-	if exists {
+	if completed {
 		u.ui.Info("User configuration already completed (marker found)")
-		u.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/user-configured")
+		u.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/" + userCompletionMarker)
 		return nil
 	}
 
@@ -261,9 +310,16 @@ func (u *UserConfigurator) Run() error {
 
 	// Prompt for username
 	u.ui.Step("Select Homelab User")
-	username, err := u.PromptForUser()
+	username, err := u.getConfiguredUsername()
 	if err != nil {
-		return fmt.Errorf("failed to get username: %w", err)
+		return fmt.Errorf("failed to read configured username: %w", err)
+	}
+
+	if username == "" {
+		username, err = u.PromptForUser()
+		if err != nil {
+			return fmt.Errorf("failed to get username: %w", err)
+		}
 	}
 
 	// Validate or create user
@@ -330,7 +386,7 @@ func (u *UserConfigurator) Run() error {
 	u.ui.Infof("Homelab user: %s (UID: %d, GID: %d)", username, uid, gid)
 
 	// Create completion marker
-	if err := u.markers.Create("user-configured"); err != nil {
+	if err := u.markers.Create(userCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 
