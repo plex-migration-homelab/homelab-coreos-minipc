@@ -228,15 +228,20 @@ func (u *UserConfigurator) SetupShell(username string) error {
 func (u *UserConfigurator) GetTimezoneInfo() error {
 	tz, err := system.GetTimezone()
 	if err != nil {
-		u.ui.Warning(fmt.Sprintf("Could not determine timezone: %v", err))
-		return nil
+		fallback := u.config.GetOrDefault("TZ", "America/Chicago")
+		u.ui.Warning(fmt.Sprintf("Could not determine timezone automatically (defaulting to %s): %v", fallback, err))
+		tz = fallback
+		u.ui.Infof("Using timezone: %s", tz)
+	} else {
+		u.ui.Infof("System timezone: %s", tz)
 	}
-
-	u.ui.Infof("System timezone: %s", tz)
 
 	// Save timezone to config for later use
 	if err := u.config.Set("TIMEZONE", tz); err != nil {
 		return fmt.Errorf("failed to save timezone to config: %w", err)
+	}
+	if err := u.config.Set("TZ", tz); err != nil {
+		return fmt.Errorf("failed to save TZ to config: %w", err)
 	}
 
 	return nil
