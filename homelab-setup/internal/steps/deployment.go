@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
@@ -56,9 +59,12 @@ func (d *Deployment) GetSelectedServices() ([]string, error) {
 func (d *Deployment) GetServiceInfo(serviceName string) *ServiceInfo {
 	containersBase := d.config.GetOrDefault("CONTAINERS_BASE", "/srv/containers")
 
+	// Use cases.Title instead of deprecated strings.Title
+	caser := cases.Title(language.English)
+
 	return &ServiceInfo{
 		Name:        serviceName,
-		DisplayName: strings.Title(serviceName),
+		DisplayName: caser.String(serviceName),
 		Directory:   filepath.Join(containersBase, serviceName),
 		UnitName:    fmt.Sprintf("podman-compose-%s.service", serviceName),
 	}
@@ -82,20 +88,27 @@ func (d *Deployment) CheckExistingService(serviceInfo *ServiceInfo) (bool, error
 	return false, nil
 }
 
+// getRuntimeFromConfig is a helper to get container runtime from config
+func (d *Deployment) getRuntimeFromConfig() (system.ContainerRuntime, error) {
+	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
+	switch runtimeStr {
+	case "podman":
+		return system.RuntimePodman, nil
+	case "docker":
+		return system.RuntimeDocker, nil
+	default:
+		return system.RuntimeNone, fmt.Errorf("unsupported container runtime: %s", runtimeStr)
+	}
+}
+
 // CreateComposeService creates a systemd service for docker-compose/podman-compose
 func (d *Deployment) CreateComposeService(serviceInfo *ServiceInfo) error {
 	d.ui.Infof("Creating systemd service: %s", serviceInfo.UnitName)
 
-	// Get container runtime and compose command
-	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
-	var runtime system.ContainerRuntime
-	switch runtimeStr {
-	case "podman":
-		runtime = system.RuntimePodman
-	case "docker":
-		runtime = system.RuntimeDocker
-	default:
-		return fmt.Errorf("unsupported container runtime: %s", runtimeStr)
+	// Get container runtime using helper
+	runtime, err := d.getRuntimeFromConfig()
+	if err != nil {
+		return err
 	}
 
 	composeCmd, err := d.containers.GetComposeCommand(runtime)
@@ -162,16 +175,10 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 
 	d.ui.Info("This may take several minutes depending on your internet connection...")
 
-	// Get container runtime and compose command
-	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
-	var runtime system.ContainerRuntime
-	switch runtimeStr {
-	case "podman":
-		runtime = system.RuntimePodman
-	case "docker":
-		runtime = system.RuntimeDocker
-	default:
-		return fmt.Errorf("unsupported container runtime: %s", runtimeStr)
+	// Get container runtime using helper
+	runtime, err := d.getRuntimeFromConfig()
+	if err != nil {
+		return err
 	}
 
 	composeCmd, err := d.containers.GetComposeCommand(runtime)
@@ -180,7 +187,10 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 	}
 
 	// Change to service directory and pull
-	originalDir, _ := os.Getwd()
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
 	if err := os.Chdir(serviceInfo.Directory); err != nil {
 		return fmt.Errorf("failed to change to service directory: %w", err)
 	}
@@ -191,6 +201,9 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 
 	// For compatibility, we need to handle both "podman-compose" and "podman compose" formats
 	cmdParts := strings.Fields(composeCmd)
+	if len(cmdParts) == 0 {
+		return fmt.Errorf("compose command is empty")
+	}
 	cmdParts = append(cmdParts, "pull")
 
 	if err := d.services.RunCommand(cmdParts[0], cmdParts[1:]...); err != nil {
@@ -228,17 +241,13 @@ func (d *Deployment) EnableAndStartService(serviceInfo *ServiceInfo) error {
 func (d *Deployment) VerifyContainers(serviceInfo *ServiceInfo) error {
 	d.ui.Step(fmt.Sprintf("Verifying %s Containers", serviceInfo.DisplayName))
 
-	// Get container runtime
-	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
-	var runtime system.ContainerRuntime
-	switch runtimeStr {
-	case "podman":
-		runtime = system.RuntimePodman
-	case "docker":
-		runtime = system.RuntimeDocker
-	default:
-		return fmt.Errorf("unsupported container runtime: %s", runtimeStr)
+	// Get container runtime using helper
+	runtime, err := d.getRuntimeFromConfig()
+	if err != nil {
+		return err
 	}
+
+	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
 
 	// List running containers
 	containers, err := d.containers.ListRunningContainers(runtime)
@@ -305,9 +314,12 @@ func (d *Deployment) DisplayAccessInfo() {
 
 	selectedServices, _ := d.GetSelectedServices()
 
+	// Use cases.Title instead of deprecated strings.Title
+	caser := cases.Title(language.English)
+
 	for _, service := range selectedServices {
 		if ports, ok := servicePorts[service]; ok {
-			d.ui.Infof("%s Stack:", strings.Title(service))
+			d.ui.Infof("%s Stack:", caser.String(service))
 			for name, port := range ports {
 				d.ui.Printf("  - %s: http://localhost:%s", name, port)
 			}
