@@ -5,26 +5,7 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-
     volumes:
-      # Mount the workspace
       - ..:/workspace:cached
-
-      # Persist Go module cache
-      - go-modules:/go/pkg/mod
-
-    # Keep container running
     command: sleep infinity
-
-    # Environment variables for Go compilation
-    environment:
-      - CGO_ENABLED=0
-      - GOOS=linux
-      - GOARCH=amd64
-
-    # Working directory
     working_dir: /workspace
-
-volumes:
-  # Named volume for Go module caching
-  go-modules:

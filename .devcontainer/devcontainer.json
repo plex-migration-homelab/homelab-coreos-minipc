@@ -1,24 +1,6 @@
 {
-	"name": "Go Development - Minimal",
-
-	// Use docker-compose for more flexibility
+	"name": "Go",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "devcontainer",
-	"workspaceFolder": "/workspace",
-
-	// Minimal VS Code configuration
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"golang.go"
-			],
-			"settings": {
-				"go.toolsManagement.checkForUpdates": "local",
-				"go.useLanguageServer": true
-			}
-		}
-	},
-
-	// Download dependencies after container is created
-	"postCreateCommand": "cd homelab-setup && go mod download"
+	"workspaceFolder": "/workspace"
 }
