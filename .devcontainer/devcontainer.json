@@ -20,5 +20,5 @@
 
 	// Download dependencies after container is created
 	// This saves time on first compile
-	"postCreateCommand": "cd homelab-setup && go mod download"
+	"postCreateCommand": "cd homelab-setup && go mod download && go install golang.org/x/tools/gopls@latest"
 }
