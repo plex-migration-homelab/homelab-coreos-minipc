@@ -2,5 +2,23 @@
 	"name": "Go",
 	"dockerComposeFile": "docker-compose.yml",
 	"service": "devcontainer",
-	"workspaceFolder": "/workspace"
+	"workspaceFolder": "/workspace",
+
+	// Essential VS Code configuration
+	"customizations": {
+		"vscode": {
+			// golang.go extension is essential for Go language support
+			"extensions": [
+				"golang.go"
+			],
+			// Minimal settings to make the Go extension work
+			"settings": {
+				"go.useLanguageServer": true
+			}
+		}
+	},
+
+	// Download dependencies after container is created
+	// This saves time on first compile
+	"postCreateCommand": "cd homelab-setup && go mod download"
 }

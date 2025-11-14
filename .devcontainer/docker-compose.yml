@@ -7,5 +7,10 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ..:/workspace:cached
+      # Cache Go modules to avoid re-downloading on every rebuild
+      - go-modules:/go/pkg/mod
     command: sleep infinity
     working_dir: /workspace
+
+volumes:
+  go-modules:
