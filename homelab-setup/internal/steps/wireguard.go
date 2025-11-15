@@ -40,6 +40,27 @@ type WireGuardSetup struct {
 	markers  *config.Markers
 }
 
+// sanitizePeerName removes or replaces characters that could break the WireGuard config format
+// or be used to inject additional configuration sections
+func sanitizePeerName(name string) string {
+	// Remove newlines, carriage returns, and other control characters
+	name = strings.ReplaceAll(name, "\n", "")
+	name = strings.ReplaceAll(name, "\r", "")
+	name = strings.ReplaceAll(name, "\t", " ")
+	
+	// Remove brackets that could be used to inject sections
+	name = strings.ReplaceAll(name, "[", "")
+	name = strings.ReplaceAll(name, "]", "")
+	
+	// Remove hash/pound sign to prevent comment injection
+	name = strings.ReplaceAll(name, "#", "")
+	
+	// Trim whitespace
+	name = strings.TrimSpace(name)
+	
+	return name
+}
+
 // NewWireGuardSetup creates a new WireGuardSetup instance
 func NewWireGuardSetup(packages *system.PackageManager, services *system.ServiceManager, fs *system.FileSystem, network *system.Network, cfg *config.Config, ui *ui.UI, markers *config.Markers) *WireGuardSetup {
 	return &WireGuardSetup{
@@ -364,9 +385,10 @@ func (w *WireGuardSetup) AddPeerToConfig(interfaceName string, peer *WireGuardPe
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Build peer section
+	// Build peer section with sanitized name to prevent config injection
+	sanitizedName := sanitizePeerName(peer.Name)
 	peerSection := fmt.Sprintf("\n# Peer: %s\n[Peer]\nPublicKey = %s\nAllowedIPs = %s\n",
-		peer.Name, peer.PublicKey, peer.AllowedIPs)
+		sanitizedName, peer.PublicKey, peer.AllowedIPs)
 
 	if peer.Endpoint != "" {
 		peerSection += fmt.Sprintf("Endpoint = %s\n", peer.Endpoint)
@@ -454,17 +476,17 @@ func (w *WireGuardSetup) AddPeers(interfaceName, publicKey, interfaceIP string) 
 			if len(parts) == 4 {
 				lastOctet := strings.Split(parts[3], "/")[0]
 				var octet int
-				fmt.Sscanf(lastOctet, "%d", &octet)
-				octet++
-				if octet > 254 {
-					w.ui.Warning("Maximum number of peers reached (254). Cannot assign more unique IP addresses in this subnet.")
 				if _, err := fmt.Sscanf(lastOctet, "%d", &octet); err != nil {
 					w.ui.Warning(fmt.Sprintf("Failed to parse last octet '%s': %v", lastOctet, err))
 					// Optionally, skip incrementing or set a sensible default, e.g. octet = 1
 					// continue
 				} else {
 					octet++
-					nextIP = fmt.Sprintf("%s.%s.%s.%d/32", parts[0], parts[1], parts[2], octet)
+					if octet > 254 {
+						w.ui.Warning("Maximum number of peers reached (254). Cannot assign more unique IP addresses in this subnet.")
+					} else {
+						nextIP = fmt.Sprintf("%s.%s.%s.%d/32", parts[0], parts[1], parts[2], octet)
+					}
 				}
 			}
 		}
