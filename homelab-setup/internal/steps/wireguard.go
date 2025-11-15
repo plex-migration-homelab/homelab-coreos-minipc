@@ -464,7 +464,11 @@ func (w *WireGuardSetup) AddPeers(interfaceName, publicKey, interfaceIP string) 
 
 		// Check if service is running and offer to restart
 		serviceName := fmt.Sprintf("wg-quick@%s.service", interfaceName)
-		active, _ := w.services.IsActive(serviceName)
+		active, err := w.services.IsActive(serviceName)
+		if err != nil {
+			w.ui.Warning(fmt.Sprintf("Could not determine service status for %s: %v", serviceName, err))
+			w.ui.Infof("You may need to manually restart the service: sudo systemctl restart %s", serviceName)
+		}
 
 		if active {
 			w.ui.Print("")
