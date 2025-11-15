@@ -2,7 +2,7 @@ package steps
 
 import (
 	"bytes"
-	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -35,26 +35,30 @@ func TestWireGuardWriteConfigCreatesSecureFile(t *testing.T) {
 		ListenPort:    "51820",
 	}
 
+	// WriteConfig creates the file with sudo, owned by root:root with 0600
 	if err := setup.WriteConfig(wgCfg, "test-private-key"); err != nil {
 		t.Fatalf("WriteConfig failed: %v", err)
 	}
 
 	configFile := filepath.Join(tmpDir, "wgtest.conf")
-	data, err := os.ReadFile(configFile)
+
+	// File is owned by root:root with 0600, so we need sudo to read it
+	output, err := exec.Command("sudo", "cat", configFile).Output()
 	if err != nil {
-		t.Fatalf("failed to read config file: %v", err)
+		t.Fatalf("failed to read config file with sudo: %v", err)
 	}
 
-	if !strings.Contains(string(data), "PrivateKey = test-private-key") {
-		t.Fatalf("config file missing private key, content: %s", string(data))
+	if !strings.Contains(string(output), "PrivateKey = test-private-key") {
+		t.Fatalf("config file missing private key, content: %s", string(output))
 	}
 
-	info, err := os.Stat(configFile)
+	// Check permissions using fs.GetPermissions which handles sudo
+	info, err := fs.GetPermissions(configFile)
 	if err != nil {
-		t.Fatalf("failed to stat config file: %v", err)
+		t.Fatalf("failed to get permissions: %v", err)
 	}
 
-	if info.Mode().Perm() != 0600 {
-		t.Fatalf("expected permissions 0600, got %v", info.Mode().Perm())
+	if info.Perm() != 0600 {
+		t.Fatalf("expected permissions 0600, got %v", info.Perm())
 	}
 }

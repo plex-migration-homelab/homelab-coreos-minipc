@@ -1,20 +1,25 @@
-FROM golang:1.24-bookworm
+FROM golang:1.23-bookworm
 
 # Install all packages as root
-RUN apt-get update && apt-get install -y git sudo zsh \
+RUN apt-get update && apt-get install -y git sudo zsh fzf \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user 'vscode' with passwordless sudo and zsh shell
+# Install zoxide
+RUN curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+
+# Create non-root user with passwordless sudo and zsh shell
 RUN useradd -m -s /bin/zsh vscode \
     && echo "vscode ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd \
     && chmod 0440 /etc/sudoers.d/nopasswd
 
-# Create cache directory with correct permissions
+# Give vscode user ownership of all Go directories
+RUN chown -R vscode:vscode /go
+
+# Create and own cache directory
 RUN mkdir -p /home/vscode/.cache && chown -R vscode:vscode /home/vscode/.cache
 
-# Set ownership of workspace to vscode user
+# Set ownership of workspace
 WORKDIR /workspace
 RUN chown -R vscode:vscode /workspace
 
-# Switch to non-root user
 USER vscode

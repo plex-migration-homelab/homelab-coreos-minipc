@@ -1,0 +1,75 @@
+name: Build homelab-setup Binary
+
+on:
+  push:
+    paths:
+      - 'homelab-setup/**'
+      - '.github/workflows/build-homelab-setup.yml'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'homelab-setup/**'
+      - '.github/workflows/build-homelab-setup.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Go Binary
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for git commit info
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: homelab-setup/go.sum
+
+      - name: Run tests
+        working-directory: homelab-setup
+        run: go test ./... -v
+
+      - name: Build binary
+        working-directory: homelab-setup
+        run: make build
+
+      - name: Copy binary to files directory
+        run: |
+          mkdir -p files/system/usr/local/bin
+          cp homelab-setup/bin/homelab-setup files/system/usr/local/bin/
+          chmod +x files/system/usr/local/bin/homelab-setup
+
+      - name: Verify binary
+        run: files/system/usr/local/bin/homelab-setup version
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --exit-code files/system/usr/local/bin/homelab-setup || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push if changed
+        if: steps.check_changes.outputs.changed == 'true' && github.event_name != 'pull_request'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add files/system/usr/local/bin/homelab-setup
+          git commit -m "chore: rebuild homelab-setup binary [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: homelab-setup-binary
+          path: files/system/usr/local/bin/homelab-setup
+          retention-days: 30

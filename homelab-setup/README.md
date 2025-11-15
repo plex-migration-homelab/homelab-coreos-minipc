@@ -12,6 +12,17 @@ A comprehensive setup tool for configuring homelab services on UBlue uCore, rewr
 
 ## Installation
 
+### Pre-built Binary (Recommended)
+
+The binary is automatically built and committed to this repository via GitHub Actions when the Go code changes:
+
+```bash
+# Copy the pre-built binary (included in the repository image)
+# Binary is located at: files/system/usr/local/bin/homelab-setup
+sudo cp files/system/usr/local/bin/homelab-setup /usr/local/bin/
+sudo chmod +x /usr/local/bin/homelab-setup
+```
+
 ### From Source
 
 ```bash
