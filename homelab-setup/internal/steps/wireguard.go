@@ -479,6 +479,11 @@ func (w *WireGuardSetup) AddPeers(interfaceName, publicKey, interfaceIP string) 
 					w.ui.Success("Service restarted successfully")
 				}
 			}
+		} else {
+			w.ui.Print("")
+			w.ui.Info("The WireGuard service is not currently running.")
+			w.ui.Info("To apply the peer changes, start the service manually:")
+			w.ui.Infof("  sudo systemctl start wg-quick@%s", interfaceName)
 		}
 	}
 
