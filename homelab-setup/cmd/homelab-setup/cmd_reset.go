@@ -27,7 +27,7 @@ Use --config to also delete the configuration file and start completely fresh.`,
 
 func init() {
 	resetCmd.Flags().BoolVarP(&resetForce, "force", "f", false, "Skip confirmation prompt")
-	resetCmd.Flags().BoolVarP(&resetConfig, "config", "c", false, "Also delete configuration file")
+	resetCmd.Flags().BoolVarP(&resetConfig, "config", "c", false, "Also delete the configuration file (requires confirmation unless --force is used)")
 	rootCmd.AddCommand(resetCmd)
 }
 
