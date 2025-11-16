@@ -15,15 +15,16 @@ type SetupContext struct {
 	Markers *config.Markers
 	UI      *ui.UI
 	Steps   *StepManager
+	DryRun  bool // If true, preview actions without executing
 }
 
 // NewSetupContext creates a new SetupContext with all dependencies initialized
 func NewSetupContext() (*SetupContext, error) {
-	return NewSetupContextWithOptions(false)
+	return NewSetupContextWithOptions(false, false)
 }
 
 // NewSetupContextWithOptions creates a new SetupContext with custom options
-func NewSetupContextWithOptions(nonInteractive bool) (*SetupContext, error) {
+func NewSetupContextWithOptions(nonInteractive bool, dryRun bool) (*SetupContext, error) {
 	// Initialize configuration
 	cfg := config.New("")
 	if err := cfg.Load(); err != nil {
@@ -58,12 +59,22 @@ func NewSetupContextWithOptions(nonInteractive bool) (*SetupContext, error) {
 		services,
 	)
 
-	return &SetupContext{
+	ctx := &SetupContext{
 		Config:  cfg,
 		Markers: markers,
 		UI:      uiInstance,
 		Steps:   stepMgr,
-	}, nil
+		DryRun:  dryRun,
+	}
+
+	// Show dry-run notice
+	if dryRun {
+		uiInstance.Warning("DRY-RUN MODE: No changes will be made to the system")
+		uiInstance.Info("This will preview what would be done without executing")
+		uiInstance.Print("")
+	}
+
+	return ctx, nil
 }
 
 // StepManager manages all setup steps
@@ -194,7 +205,16 @@ func (sm *StepManager) RunStep(shortName string) error {
 	}
 
 	if err != nil {
+		// Mark step as failed
+		if markErr := sm.markers.MarkFailed(markerName); markErr != nil {
+			sm.ui.Warning(fmt.Sprintf("Failed to create failure marker: %v", markErr))
+		}
 		return err
+	}
+
+	// Clear any previous failure marker
+	if clearErr := sm.markers.ClearFailure(markerName); clearErr != nil {
+		sm.ui.Warning(fmt.Sprintf("Failed to clear failure marker: %v", clearErr))
 	}
 
 	// Mark step as complete

@@ -162,3 +162,50 @@ func (m *Markers) List() ([]string, error) {
 func (m *Markers) Dir() string {
 	return m.dir
 }
+
+// MarkFailed creates a failure marker for a step
+func (m *Markers) MarkFailed(name string) error {
+	return m.Create(name + "-failed")
+}
+
+// ClearFailure removes a failure marker
+func (m *Markers) ClearFailure(name string) error {
+	return m.Remove(name + "-failed")
+}
+
+// IsFailed checks if a step has a failure marker
+func (m *Markers) IsFailed(name string) (bool, error) {
+	return m.Exists(name + "-failed")
+}
+
+// StepStatus represents the status of a setup step
+type StepStatus int
+
+const (
+	StepNotStarted StepStatus = iota
+	StepCompleted
+	StepFailed
+)
+
+// GetStatus returns the status of a step based on markers
+func (m *Markers) GetStatus(name string) (StepStatus, error) {
+	// Check for failure marker first
+	failed, err := m.IsFailed(name)
+	if err != nil {
+		return StepNotStarted, err
+	}
+	if failed {
+		return StepFailed, nil
+	}
+
+	// Check for completion marker
+	completed, err := m.Exists(name)
+	if err != nil {
+		return StepNotStarted, err
+	}
+	if completed {
+		return StepCompleted, nil
+	}
+
+	return StepNotStarted, nil
+}

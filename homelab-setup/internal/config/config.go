@@ -6,14 +6,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
-// Config manages homelab setup configuration
+// Config manages homelab setup configuration with thread-safe operations
 type Config struct {
 	filePath string
 	data     map[string]string
 	loaded   bool // Track if configuration has been loaded from disk
+	mu       sync.RWMutex
 }
 
 // ensureLoaded loads configuration data from disk once before read operations
@@ -132,8 +134,11 @@ func (c *Config) Save() error {
 	return nil
 }
 
-// Get retrieves a configuration value
+// Get retrieves a configuration value (thread-safe)
 func (c *Config) Get(key string) (string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.ensureLoaded(); err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
@@ -144,20 +149,31 @@ func (c *Config) Get(key string) (string, error) {
 	return value, nil
 }
 
-// GetOrDefault retrieves a value or returns default if not found
+// GetOrDefault retrieves a value or returns default if not found (thread-safe)
+// First checks the config, then the Defaults table, then the provided fallback
 func (c *Config) GetOrDefault(key, defaultValue string) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.ensureLoaded(); err != nil {
 		return defaultValue
 	}
 	if value, exists := c.data[key]; exists {
 		return value
 	}
+	// Check the defaults table
+	if tableDefault, exists := Defaults[key]; exists {
+		return tableDefault
+	}
 	return defaultValue
 }
 
-// Set sets a configuration value
+// Set sets a configuration value (thread-safe)
 // Automatically loads existing configuration if not already loaded to prevent data loss
 func (c *Config) Set(key, value string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// Load existing configuration first to avoid overwriting
 	if !c.loaded {
 		if err := c.Load(); err != nil {
@@ -169,8 +185,11 @@ func (c *Config) Set(key, value string) error {
 	return c.Save()
 }
 
-// Exists checks if a key exists
+// Exists checks if a key exists (thread-safe)
 func (c *Config) Exists(key string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.ensureLoaded(); err != nil {
 		return false
 	}
@@ -178,8 +197,11 @@ func (c *Config) Exists(key string) bool {
 	return exists
 }
 
-// GetAll returns all configuration data
+// GetAll returns all configuration data (thread-safe)
 func (c *Config) GetAll() map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if err := c.ensureLoaded(); err != nil {
 		return map[string]string{}
 	}
@@ -191,9 +213,12 @@ func (c *Config) GetAll() map[string]string {
 	return result
 }
 
-// Delete removes a configuration key
+// Delete removes a configuration key (thread-safe)
 // Automatically loads existing configuration if not already loaded to prevent data loss
 func (c *Config) Delete(key string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// Load existing configuration first to avoid overwriting
 	if !c.loaded {
 		if err := c.Load(); err != nil {

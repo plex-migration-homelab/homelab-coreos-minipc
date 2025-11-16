@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 )
 
 // ErrExit is returned when the user chooses to exit the menu
@@ -93,11 +94,18 @@ func (m *Menu) displayMenu() {
 	fmt.Println()
 
 	steps := m.ctx.Steps.GetAllSteps()
+	red := color.New(color.FgRed)
+
 	for i, step := range steps {
-		// Check completion status
+		// Check step status
+		stepStatus, _ := m.ctx.Markers.GetStatus(step.MarkerName)
 		status := "  "
-		if m.ctx.Steps.IsStepComplete(step.MarkerName) {
+
+		switch stepStatus {
+		case config.StepCompleted:
 			status = green.Sprint("✓")
+		case config.StepFailed:
+			status = red.Sprint("✗")
 		}
 
 		bold.Printf("  [%d] ", i)

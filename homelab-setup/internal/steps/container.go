@@ -27,10 +27,12 @@ type ContainerSetup struct {
 // getContainersBase returns the base directory for service files, preferring the
 // unified homelab base directory when available.
 func (c *ContainerSetup) getContainersBase() string {
-	if base := c.config.GetOrDefault("HOMELAB_BASE_DIR", ""); base != "" {
-		return base
+	// Check if HOMELAB_BASE_DIR is explicitly set (not just from defaults)
+	if c.config.Exists(config.KeyHomelabBaseDir) {
+		return c.config.GetOrDefault(config.KeyHomelabBaseDir, "")
 	}
-	return c.config.GetOrDefault("CONTAINERS_BASE", "/srv/containers")
+	// Fall back to legacy CONTAINERS_BASE
+	return c.config.GetOrDefault(config.KeyContainersBase, "/srv/containers")
 }
 
 // serviceDirectory returns the directory path for a given service.
