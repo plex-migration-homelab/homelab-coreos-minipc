@@ -340,7 +340,7 @@ func (fs *FileSystem) CreateSymlink(target, linkPath string) error {
 func (fs *FileSystem) WriteFile(path string, content []byte, perms os.FileMode) error {
 	if err := fs.writeFileDirect(path, content, perms); err == nil {
 		return nil
-	} else if err != nil && !errors.Is(err, os.ErrPermission) {
+	} else if !errors.Is(err, os.ErrPermission) {
 		return err
 	}
 
