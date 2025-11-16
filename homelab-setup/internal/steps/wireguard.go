@@ -534,10 +534,12 @@ func (w *WireGuardSetup) AddPeers(interfaceName, publicKey, interfaceIP string) 
 		peerCount++
 
 		// Increment suggested IP for next peer
-		if incremented, err := incrementIP(nextIP); err == nil {
-			nextIP = incremented
+		incrementedIP, err := incrementIP(nextIP)
+		if err == nil {
+			nextIP = incrementedIP
 		} else {
 			w.ui.Warning(fmt.Sprintf("Failed to increment IP: %v", err))
+			// nextIP remains unchanged; last successful IP will be reused
 		}
 
 		w.ui.Print("")
