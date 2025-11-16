@@ -131,3 +131,8 @@ func (u *UI) Printf(format string, args ...interface{}) {
 func (u *UI) Bold(msg string) {
 	u.colorBold.Fprintln(u.output, msg)
 }
+
+// Spinner creates a new spinner with a message
+func (u *UI) Spinner(message string) *Spinner {
+	return NewSpinner(message)
+}

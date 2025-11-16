@@ -11,6 +11,7 @@ import (
 var (
 	// Flags for non-interactive mode
 	nonInteractive bool
+	dryRun         bool
 	setupUser      string
 	nfsServer      string
 	homelabBaseDir string
@@ -38,6 +39,7 @@ Steps:
 
 func init() {
 	runCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "Run in non-interactive mode")
+	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview actions without executing")
 	runCmd.Flags().StringVar(&setupUser, "setup-user", "", "Username for homelab setup")
 	runCmd.Flags().StringVar(&nfsServer, "nfs-server", "", "NFS server address")
 	runCmd.Flags().StringVar(&homelabBaseDir, "homelab-base-dir", "", "Base directory for homelab")

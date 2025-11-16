@@ -165,6 +165,40 @@ func (p *PreflightChecker) CheckContainerRuntime() error {
 	return fmt.Errorf("no container runtime available")
 }
 
+// CheckSudoAccess validates sudo is available and configured
+func (p *PreflightChecker) CheckSudoAccess() error {
+	p.ui.Info("Checking sudo access...")
+
+	sudoChecker := system.NewSudoChecker()
+
+	requiresPwd, err := sudoChecker.RequiresPassword()
+	if err != nil {
+		return fmt.Errorf("failed to check sudo: %w", err)
+	}
+
+	if requiresPwd {
+		p.ui.Warning("Sudo requires password authentication")
+		p.ui.Info("For unattended operation, configure passwordless sudo")
+		p.ui.Print("")
+		p.ui.Info("Quick setup:")
+		p.ui.Info("  echo '$USER ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/$USER")
+		p.ui.Info("  sudo chmod 440 /etc/sudoers.d/$USER")
+		p.ui.Print("")
+
+		// Try to authenticate once
+		p.ui.Info("Validating sudo access (you may be prompted for password)...")
+		if err := sudoChecker.ValidateAccess(); err != nil {
+			p.ui.Error("Failed to authenticate with sudo")
+			return fmt.Errorf("sudo authentication failed: %w", err)
+		}
+		p.ui.Success("Sudo access validated (credentials cached)")
+	} else {
+		p.ui.Success("Passwordless sudo is configured")
+	}
+
+	return nil
+}
+
 // CheckNetworkConnectivity tests basic network connectivity
 func (p *PreflightChecker) CheckNetworkConnectivity() error {
 	p.ui.Info("Checking network connectivity...")
@@ -295,6 +329,13 @@ func (p *PreflightChecker) RunAll() error {
 	// Run container runtime check
 	p.ui.Step("Checking Container Runtime")
 	if err := p.CheckContainerRuntime(); err != nil {
+		hasErrors = true
+		errorMessages = append(errorMessages, err.Error())
+	}
+
+	// Run sudo access check
+	p.ui.Step("Checking Sudo Access")
+	if err := p.CheckSudoAccess(); err != nil {
 		hasErrors = true
 		errorMessages = append(errorMessages, err.Error())
 	}

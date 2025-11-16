@@ -197,7 +197,16 @@ func (sm *StepManager) RunStep(shortName string) error {
 	}
 
 	if err != nil {
+		// Mark step as failed
+		if markErr := sm.markers.MarkFailed(markerName); markErr != nil {
+			sm.ui.Warning(fmt.Sprintf("Failed to create failure marker: %v", markErr))
+		}
 		return err
+	}
+
+	// Clear any previous failure marker
+	if clearErr := sm.markers.ClearFailure(markerName); clearErr != nil {
+		sm.ui.Warning(fmt.Sprintf("Failed to clear failure marker: %v", clearErr))
 	}
 
 	// Mark step as complete
