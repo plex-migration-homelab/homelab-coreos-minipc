@@ -82,13 +82,13 @@ return strings.TrimSpace(string(output)), nil
 
 // DerivePublicKey runs "wg pubkey" using the provided private key.
 func (CommandKeyGenerator) DerivePublicKey(privateKey string) (string, error) {
-pubCmd := exec.Command("wg", "pubkey")
-pubCmd.Stdin = strings.NewReader(privateKey)
-pubOutput, err := pubCmd.Output()
-if err != nil {
-return "", fmt.Errorf("failed to derive public key: %w", err)
-}
-return strings.TrimSpace(string(pubOutput)), nil
+	pubCmd := exec.Command("wg", "pubkey")
+	pubCmd.Stdin = strings.NewReader(privateKey)
+	pubOutput, err := pubCmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to derive public key: %w", err)
+	}
+	return strings.TrimSpace(string(pubOutput)), nil
 }
 
 // sanitizePeerName removes or replaces characters that could break the WireGuard config format
