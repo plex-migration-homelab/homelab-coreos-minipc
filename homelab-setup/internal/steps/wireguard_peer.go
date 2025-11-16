@@ -472,23 +472,31 @@ func appendPeerBlock(existing, block string) string {
 	return trimmed + "\n\n" + block + "\n"
 }
 
+func sanitizeConfigValue(val string) string {
+	// Remove newlines and carriage returns, and trim leading/trailing whitespace
+	val = strings.ReplaceAll(val, "\n", "")
+	val = strings.ReplaceAll(val, "\r", "")
+	val = strings.TrimSpace(val)
+	return val
+}
+
 func renderClientConfig(privateKey, address, dns, serverPublicKey, presharedKey, endpoint, allowedIPs string, keepalive int) string {
 	builder := strings.Builder{}
 	builder.WriteString("[Interface]\n")
-	builder.WriteString(fmt.Sprintf("PrivateKey = %s\n", privateKey))
-	builder.WriteString(fmt.Sprintf("Address = %s\n", address))
+	builder.WriteString(fmt.Sprintf("PrivateKey = %s\n", sanitizeConfigValue(privateKey)))
+	builder.WriteString(fmt.Sprintf("Address = %s\n", sanitizeConfigValue(address)))
 	if dns != "" {
-		builder.WriteString(fmt.Sprintf("DNS = %s\n", dns))
+		builder.WriteString(fmt.Sprintf("DNS = %s\n", sanitizeConfigValue(dns)))
 	}
 	builder.WriteString("\n[Peer]\n")
-	builder.WriteString(fmt.Sprintf("PublicKey = %s\n", serverPublicKey))
+	builder.WriteString(fmt.Sprintf("PublicKey = %s\n", sanitizeConfigValue(serverPublicKey)))
 	if presharedKey != "" {
-		builder.WriteString(fmt.Sprintf("PresharedKey = %s\n", presharedKey))
+		builder.WriteString(fmt.Sprintf("PresharedKey = %s\n", sanitizeConfigValue(presharedKey)))
 	}
 	if endpoint != "" {
-		builder.WriteString(fmt.Sprintf("Endpoint = %s\n", endpoint))
+		builder.WriteString(fmt.Sprintf("Endpoint = %s\n", sanitizeConfigValue(endpoint)))
 	}
-	builder.WriteString(fmt.Sprintf("AllowedIPs = %s\n", allowedIPs))
+	builder.WriteString(fmt.Sprintf("AllowedIPs = %s\n", sanitizeConfigValue(allowedIPs)))
 	builder.WriteString(fmt.Sprintf("PersistentKeepalive = %d\n", keepalive))
 	return builder.String()
 }
