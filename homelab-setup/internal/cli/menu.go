@@ -151,12 +151,12 @@ func (m *Menu) handleChoice(choice string) error {
 		return m.runIndividualStep(choice)
 	case "T":
 		return m.runTroubleshoot()
-case "S":
-return m.showStatus()
-case "P":
-return m.addWireGuardPeer()
-case "R":
-return m.resetSetup()
+		case "S":
+			return m.showStatus()
+		case "P":
+			return m.addWireGuardPeer()
+		case "R":
+			return m.resetSetup()
 	case "H":
 		return m.showHelp()
 	case "X":
