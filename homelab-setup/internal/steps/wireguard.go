@@ -380,11 +380,18 @@ func (w *WireGuardSetup) PromptForPeer(nextIP string) (*WireGuardPeer, error) {
 	peer.PublicKey = publicKey
 
 	// Prompt for allowed IPs
-	allowedIPs, err := w.ui.PromptInput("Allowed IPs for this peer", nextIP)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prompt for allowed IPs: %w", err)
+	for {
+		allowedIPs, err := w.ui.PromptInput("Allowed IPs for this peer", nextIP)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prompt for allowed IPs: %w", err)
+		}
+		if err := common.ValidateCIDR(allowedIPs); err != nil {
+			w.ui.Error(fmt.Sprintf("Invalid CIDR notation: %v. Please enter a valid CIDR (e.g., '10.253.0.2/32').", err))
+			continue
+		}
+		peer.AllowedIPs = allowedIPs
+		break
 	}
-	peer.AllowedIPs = allowedIPs
 
 	// Prompt for endpoint (optional)
 	w.ui.Info("Endpoint is optional - leave empty for road warrior clients")
