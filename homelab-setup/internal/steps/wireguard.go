@@ -524,7 +524,7 @@ func (w *WireGuardSetup) AddPeers(interfaceName, publicKey, interfaceIP string) 
 		// Start with the interface IP and increment to get the first peer IP
 		// Convert /24 (or other CIDR) to /32 for peer
 		parts := strings.Split(interfaceIP, "/")
-		if len(parts) > 0 {
+		if len(parts) >= 2 {
 			baseIP := parts[0] + "/32"
 			// Increment from server IP (e.g., 10.253.0.1/32 → 10.253.0.2/32)
 			if incremented, err := incrementIP(baseIP); err == nil {
