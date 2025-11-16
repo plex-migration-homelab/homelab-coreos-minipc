@@ -402,7 +402,8 @@ func (w *WireGuardSetup) PromptForPeer(nextIP string) (*WireGuardPeer, error) {
 	if name == "" {
 		name = "unnamed-peer"
 	}
-	peer.Name = name
+	// Sanitize the peer name immediately to prevent config injection
+	peer.Name = sanitizePeerName(name)
 
 	// Prompt for public key
 	publicKey, err := w.ui.PromptInput("Peer public key", "")
