@@ -144,6 +144,11 @@ func nextPeerAddress(interfaceCIDR string, used map[string]struct{}) (string, er
 		return "", fmt.Errorf("only IPv4 addresses are supported for auto-allocation")
 	}
 	total := 1 << uint(32-ones)
+	// Early check for impractically large subnets
+	const maxSubnetSize = 4096 // Limit to /20 or smaller
+	if total > maxSubnetSize {
+		return "", fmt.Errorf("subnet too large (%d addresses). Please use a smaller subnet (e.g., /24 or /20)", total)
+	}
 	current := make(net.IP, len(network.IP))
 	copy(current, network.IP)
 	// skip network address
