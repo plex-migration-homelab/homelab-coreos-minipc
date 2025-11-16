@@ -50,9 +50,6 @@ var wireguardAddPeerCmd = &cobra.Command{
 			SkipQRCode:                 addPeerSkipQR,
 		}
 
-		if addPeerOutputDir == "" {
-			opts.OutputDir = ""
-		}
 
 		if flag := cmd.Flags().Lookup("route-all"); flag != nil && flag.Changed {
 			opts.RouteAll = &addPeerRouteAll
