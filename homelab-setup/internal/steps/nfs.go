@@ -389,14 +389,9 @@ WantedBy=multi-user.target
 }
 
 // pathToUnitName converts a mount point path to a systemd unit name
-// Example: /mnt/nas-media -> mnt-nas\x2dmedia.mount
+// Example: /mnt/nas-media -> mnt-nas-media.mount
 func pathToUnitName(runner system.CommandRunner, mountPoint string) (string, error) {
-	output, err := runner.Run("systemd-escape", "--path", "--suffix=mount", mountPoint)
-	if err != nil {
-		return "", fmt.Errorf("systemd-escape failed: %w", err)
-	}
-
-	return strings.TrimSpace(output), nil
+	return mountPointToUnitName(mountPoint), nil
 }
 
 // AddToFstab adds NFS mount to /etc/fstab (deprecated, kept for compatibility)

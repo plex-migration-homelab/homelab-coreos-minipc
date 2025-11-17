@@ -67,9 +67,7 @@ func TestMountNFSUsesRunner(t *testing.T) {
 	testUI := ui.NewWithWriter(buf)
 
 	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, packages)
-	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
-		"systemd-escape --path --suffix=mount /mnt/nas-media": "mnt-nas\\x2dmedia.mount\n",
-	}}
+	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{}}
 	nfs.runner = fakeRunner
 
 	mountPoint := filepath.Join(tmpDir, "mnt")
@@ -188,9 +186,7 @@ func TestCreateSystemdMountUnit(t *testing.T) {
 	testUI := ui.NewWithWriter(buf)
 
 	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, packages)
-	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
-		"systemd-escape --path --suffix=mount /mnt/nas-media": "mnt-nas\\x2dmedia.mount\n",
-	}}
+	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{}}
 	nfs.runner = fakeRunner
 
 	// Test creating mount unit - this will fail due to permissions
@@ -217,20 +213,14 @@ func TestPathToUnitName(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"/mnt/nas-media", "mnt-nas\\x2dmedia.mount"},
-		{"/mnt/nas-nextcloud", "mnt-nas\\x2dnextcloud.mount"},
+		{"/mnt/nas-media", "mnt-nas-media.mount"},
+		{"/mnt/nas-nextcloud", "mnt-nas-nextcloud.mount"},
 		{"/srv/data", "srv-data.mount"},
 		{"/mnt/foo/bar/baz", "mnt-foo-bar-baz.mount"},
-		{"/mnt/My Media", "mnt-My\\x20Media.mount"},
+		{"/mnt/My Media", "mnt-My Media.mount"},
 	}
 
-	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
-		"systemd-escape --path --suffix=mount /mnt/nas-media":     "mnt-nas\\x2dmedia.mount\n",
-		"systemd-escape --path --suffix=mount /mnt/nas-nextcloud": "mnt-nas\\x2dnextcloud.mount\n",
-		"systemd-escape --path --suffix=mount /srv/data":          "srv-data.mount\n",
-		"systemd-escape --path --suffix=mount /mnt/foo/bar/baz":   "mnt-foo-bar-baz.mount\n",
-		"systemd-escape --path --suffix=mount /mnt/My Media":      "mnt-My\\x20Media.mount\n",
-	}}
+	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{}}
 
 	for _, tt := range tests {
 		result, err := pathToUnitName(fakeRunner, tt.input)
