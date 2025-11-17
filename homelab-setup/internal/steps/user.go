@@ -10,35 +10,24 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
-const defaultTimezone = "America/Chicago"
+const (
+	userCompletionMarker = "user-setup-complete"
+	defaultTimezone      = "America/Chicago"
+)
 
-// UserConfigurator handles user and group configuration
-type UserConfigurator struct {
-	config *config.Config
-	ui     *ui.UI
-}
-
-// NewUserConfigurator creates a new UserConfigurator instance
-func NewUserConfigurator(cfg *config.Config, ui *ui.UI) *UserConfigurator {
-	return &UserConfigurator{
-		config: cfg,
-		ui:     ui,
-	}
-}
-
-// PromptForUser prompts for a homelab username or allows using current user
-func (u *UserConfigurator) PromptForUser() (string, error) {
+// promptForUser prompts for a homelab username or allows using current user
+func promptForUser(ui *ui.UI) (string, error) {
 	// Get current user
 	currentUser, err := system.GetCurrentUser()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current user: %w", err)
 	}
 
-	u.ui.Info(fmt.Sprintf("Current user: %s (UID: %s, GID: %s)", currentUser.Username, currentUser.Uid, currentUser.Gid))
-	u.ui.Print("")
+	ui.Info(fmt.Sprintf("Current user: %s (UID: %s, GID: %s)", currentUser.Username, currentUser.Uid, currentUser.Gid))
+	ui.Print("")
 
 	// Prompt for username with current user as default
-	username, err := u.ui.PromptInput("Enter homelab username (or press Enter to use current user)", currentUser.Username)
+	username, err := ui.PromptInput("Enter homelab username (or press Enter to use current user)", currentUser.Username)
 	if err != nil {
 		return "", fmt.Errorf("failed to prompt for username: %w", err)
 	}
@@ -53,27 +42,27 @@ func (u *UserConfigurator) PromptForUser() (string, error) {
 
 // getConfiguredUsername returns a validated username from existing configuration.
 // It prefers HOMELAB_USER and falls back to SETUP_USER for backwards compatibility.
-func (u *UserConfigurator) getConfiguredUsername() (string, error) {
+func getConfiguredUsername(cfg *config.Config, ui *ui.UI) (string, error) {
 	configKeys := []string{"HOMELAB_USER", "SETUP_USER"}
 
 	for _, key := range configKeys {
-		value := strings.TrimSpace(u.config.GetOrDefault(key, ""))
+		value := strings.TrimSpace(cfg.GetOrDefault(key, ""))
 		if value == "" {
 			continue
 		}
 
 		if err := common.ValidateUsername(value); err != nil {
-			u.ui.Warningf("Ignoring %s=%s: %v", key, value, err)
+			ui.Warningf("Ignoring %s=%s: %v", key, value, err)
 			continue
 		}
 
 		if key == "HOMELAB_USER" {
-			u.ui.Infof("Using pre-configured homelab user: %s", value)
+			ui.Infof("Using pre-configured homelab user: %s", value)
 			return value, nil
 		}
 
-		u.ui.Infof("Using SETUP_USER (%s) for homelab user", value)
-		if err := u.config.Set("HOMELAB_USER", value); err != nil {
+		ui.Infof("Using SETUP_USER (%s) for homelab user", value)
+		if err := cfg.Set("HOMELAB_USER", value); err != nil {
 			return "", fmt.Errorf("failed to persist HOMELAB_USER: %w", err)
 		}
 		return value, nil
@@ -82,8 +71,8 @@ func (u *UserConfigurator) getConfiguredUsername() (string, error) {
 	return "", nil
 }
 
-// ValidateUser checks if a user exists and can be used for homelab
-func (u *UserConfigurator) ValidateUser(username string) error {
+// validateUser checks if a user exists and can be used for homelab
+func validateUser(username string, ui *ui.UI) error {
 	exists, err := system.UserExists(username)
 	if err != nil {
 		return fmt.Errorf("failed to check if user exists: %w", err)
@@ -99,7 +88,7 @@ func (u *UserConfigurator) ValidateUser(username string) error {
 		return fmt.Errorf("failed to get user info: %w", err)
 	}
 
-	u.ui.Successf("User %s found (UID: %s, GID: %s)", username, userInfo.Uid, userInfo.Gid)
+	ui.Successf("User %s found (UID: %s, GID: %s)", username, userInfo.Uid, userInfo.Gid)
 
 	// Check user groups
 	groups, err := system.GetUserGroups(username)
@@ -107,7 +96,7 @@ func (u *UserConfigurator) ValidateUser(username string) error {
 		return fmt.Errorf("failed to get user groups: %w", err)
 	}
 
-	u.ui.Infof("User groups: %v", groups)
+	ui.Infof("User groups: %v", groups)
 
 	// Check if user is in wheel group (recommended for sudo)
 	inWheel, err := system.IsUserInGroup(username, "wheel")
@@ -116,31 +105,31 @@ func (u *UserConfigurator) ValidateUser(username string) error {
 	}
 
 	if inWheel {
-		u.ui.Success("User is in 'wheel' group (has sudo privileges)")
+		ui.Success("User is in 'wheel' group (has sudo privileges)")
 	} else {
-		u.ui.Warning("User is NOT in 'wheel' group")
-		u.ui.Info("This user may not have sudo privileges")
+		ui.Warning("User is NOT in 'wheel' group")
+		ui.Info("This user may not have sudo privileges")
 	}
 
 	return nil
 }
 
-// CreateUserIfNeeded creates a user if they don't exist
-func (u *UserConfigurator) CreateUserIfNeeded(username string) error {
+// createUserIfNeeded creates a user if they don't exist
+func createUserIfNeeded(username string, ui *ui.UI) error {
 	exists, err := system.UserExists(username)
 	if err != nil {
 		return fmt.Errorf("failed to check if user exists: %w", err)
 	}
 
 	if exists {
-		u.ui.Infof("User %s already exists", username)
+		ui.Infof("User %s already exists", username)
 		return nil
 	}
 
-	u.ui.Infof("User %s does not exist", username)
+	ui.Infof("User %s does not exist", username)
 
 	// Ask if they want to create the user
-	createUser, err := u.ui.PromptYesNo(fmt.Sprintf("Create user %s?", username), true)
+	createUser, err := ui.PromptYesNo(fmt.Sprintf("Create user %s?", username), true)
 	if err != nil {
 		return fmt.Errorf("failed to prompt for user creation: %w", err)
 	}
@@ -150,33 +139,33 @@ func (u *UserConfigurator) CreateUserIfNeeded(username string) error {
 	}
 
 	// Create user with home directory
-	u.ui.Infof("Creating user %s...", username)
+	ui.Infof("Creating user %s...", username)
 	if err := system.CreateUser(username, true); err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 
-	u.ui.Successf("User %s created successfully", username)
+	ui.Successf("User %s created successfully", username)
 
 	// Add user to wheel group for sudo access
-	addToWheel, err := u.ui.PromptYesNo(fmt.Sprintf("Add %s to 'wheel' group (sudo privileges)?", username), true)
+	addToWheel, err := ui.PromptYesNo(fmt.Sprintf("Add %s to 'wheel' group (sudo privileges)?", username), true)
 	if err != nil {
 		return fmt.Errorf("failed to prompt for wheel group: %w", err)
 	}
 
 	if addToWheel {
 		if err := system.AddUserToGroup(username, "wheel"); err != nil {
-			u.ui.Warning(fmt.Sprintf("Failed to add user to wheel group: %v", err))
+			ui.Warning(fmt.Sprintf("Failed to add user to wheel group: %v", err))
 		} else {
-			u.ui.Success("User added to 'wheel' group")
+			ui.Success("User added to 'wheel' group")
 		}
 	}
 
 	return nil
 }
 
-// ConfigureSubuidSubgid configures subuid and subgid mappings for rootless containers
-func (u *UserConfigurator) ConfigureSubuidSubgid(username string) error {
-	u.ui.Info("Checking subuid/subgid mappings for rootless containers...")
+// configureSubuidSubgid configures subuid and subgid mappings for rootless containers
+func configureSubuidSubgid(username string, ui *ui.UI) error {
+	ui.Info("Checking subuid/subgid mappings for rootless containers...")
 
 	// Check if subuid exists
 	hasSubUID, err := system.CheckSubUIDExists(username)
@@ -185,13 +174,13 @@ func (u *UserConfigurator) ConfigureSubuidSubgid(username string) error {
 	}
 
 	if hasSubUID {
-		u.ui.Success("subuid mapping already configured")
+		ui.Success("subuid mapping already configured")
 	} else {
-		u.ui.Warning("subuid mapping not found")
-		u.ui.Info("Rootless containers require subuid/subgid mappings")
-		u.ui.Info("These are typically created automatically when a user is created")
-		u.ui.Info("If using an existing user, you may need to manually configure:")
-		u.ui.Infof("  echo '%s:100000:65536' | sudo tee -a /etc/subuid", username)
+		ui.Warning("subuid mapping not found")
+		ui.Info("Rootless containers require subuid/subgid mappings")
+		ui.Info("These are typically created automatically when a user is created")
+		ui.Info("If using an existing user, you may need to manually configure:")
+		ui.Infof("  echo '%s:100000:65536' | sudo tee -a /etc/subuid", username)
 	}
 
 	// Check if subgid exists
@@ -201,27 +190,27 @@ func (u *UserConfigurator) ConfigureSubuidSubgid(username string) error {
 	}
 
 	if hasSubGID {
-		u.ui.Success("subgid mapping already configured")
+		ui.Success("subgid mapping already configured")
 	} else {
-		u.ui.Warning("subgid mapping not found")
-		u.ui.Infof("  echo '%s:100000:65536' | sudo tee -a /etc/subgid", username)
+		ui.Warning("subgid mapping not found")
+		ui.Infof("  echo '%s:100000:65536' | sudo tee -a /etc/subgid", username)
 	}
 
 	if !hasSubUID || !hasSubGID {
-		u.ui.Warning("Rootless containers may not work properly without subuid/subgid mappings")
-		u.ui.Info("Please configure them manually or use a freshly created user")
+		ui.Warning("Rootless containers may not work properly without subuid/subgid mappings")
+		ui.Info("Please configure them manually or use a freshly created user")
 	}
 
 	return nil
 }
 
-// SetupShell optionally sets the user's shell
-func (u *UserConfigurator) SetupShell(username string) error {
+// setupShell optionally sets the user's shell
+func setupShell(username string, ui *ui.UI) error {
 	// Note: os/user.User struct doesn't include shell information
 	// Would need to parse /etc/passwd or use getent to get current shell
 
 	// Ask if they want to set the shell
-	changeShell, err := u.ui.PromptYesNo("Would you like to change the shell?", false)
+	changeShell, err := ui.PromptYesNo("Would you like to change the shell?", false)
 	if err != nil {
 		return fmt.Errorf("failed to prompt for shell change: %w", err)
 	}
@@ -237,7 +226,7 @@ func (u *UserConfigurator) SetupShell(username string) error {
 		"/bin/sh",
 	}
 
-	shellIndex, err := u.ui.PromptSelect("Select shell", shellOptions)
+	shellIndex, err := ui.PromptSelect("Select shell", shellOptions)
 	if err != nil {
 		return fmt.Errorf("failed to prompt for shell selection: %w", err)
 	}
@@ -245,88 +234,86 @@ func (u *UserConfigurator) SetupShell(username string) error {
 	selectedShell := shellOptions[shellIndex]
 
 	// Set the shell
-	u.ui.Infof("Setting shell to %s...", selectedShell)
+	ui.Infof("Setting shell to %s...", selectedShell)
 	if err := system.SetUserShell(username, selectedShell); err != nil {
 		return fmt.Errorf("failed to set shell: %w", err)
 	}
 
-	u.ui.Successf("Shell set to %s", selectedShell)
+	ui.Successf("Shell set to %s", selectedShell)
 	return nil
 }
 
-// GetTimezoneInfo gets and displays timezone information
-func (u *UserConfigurator) GetTimezoneInfo() error {
+// getTimezoneInfo gets and displays timezone information
+func getTimezoneInfo(cfg *config.Config, ui *ui.UI) error {
 	tz, err := system.GetTimezone()
 	if err != nil {
-		if loadErr := u.config.Load(); loadErr != nil {
-			u.ui.Warning(fmt.Sprintf("Could not load existing timezone configuration (defaulting to %s): %v", defaultTimezone, loadErr))
+		if loadErr := cfg.Load(); loadErr != nil {
+			ui.Warning(fmt.Sprintf("Could not load existing timezone configuration (defaulting to %s): %v", defaultTimezone, loadErr))
 		}
 
-		fallback := u.config.GetOrDefault("TZ", "")
+		fallback := cfg.GetOrDefault("TZ", "")
 		if fallback == "" {
 			fallback = defaultTimezone
 		}
 
-		u.ui.Warning(fmt.Sprintf("Could not determine timezone automatically (using %s): %v", fallback, err))
+		ui.Warning(fmt.Sprintf("Could not determine timezone automatically (using %s): %v", fallback, err))
 		tz = fallback
-		u.ui.Infof("Using timezone: %s", tz)
+		ui.Infof("Using timezone: %s", tz)
 	} else {
-		u.ui.Infof("System timezone: %s", tz)
+		ui.Infof("System timezone: %s", tz)
 	}
 
 	// Save timezone to config for later use
-	if err := u.config.Set("TIMEZONE", tz); err != nil {
+	if err := cfg.Set("TIMEZONE", tz); err != nil {
 		return fmt.Errorf("failed to save timezone to config: %w", err)
 	}
-	if err := u.config.Set("TZ", tz); err != nil {
+	if err := cfg.Set("TZ", tz); err != nil {
 		return fmt.Errorf("failed to save TZ to config: %w", err)
 	}
 
 	return nil
 }
 
-const userCompletionMarker = "user-setup-complete"
-
-// Run executes the user configuration step
-func (u *UserConfigurator) Run() error {
+// RunUserSetup executes the user configuration step
+func RunUserSetup(cfg *config.Config, ui *ui.UI) error {
 	// Check if already completed (and migrate legacy markers)
-	completed, err := ensureCanonicalMarker(u.config, userCompletionMarker, "user-configured")
+	completed, err := ensureCanonicalMarker(cfg, userCompletionMarker, "user-configured")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
 	if completed {
-		u.ui.Info("User configuration already completed (marker found)")
-		u.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/" + userCompletionMarker)
+		ui.Info("User configuration already completed (marker found)")
+		ui.Info("To re-run, remove marker: ~/.local/homelab-setup/" + userCompletionMarker)
 		return nil
 	}
 
-	u.ui.Header("User Configuration")
-	u.ui.Info("Configuring user account for homelab services...")
-	u.ui.Print("")
+	ui.Header("User Configuration")
+	ui.Info("Configuring user account for homelab services...")
+	ui.Print("")
 
 	// Prompt for username
-	u.ui.Step("Select Homelab User")
-	username, err := u.getConfiguredUsername()
+	ui.Step("Select Homelab User")
+	username, err := getConfiguredUsername(cfg, ui)
 	if err != nil {
 		return fmt.Errorf("failed to read configured username: %w", err)
 	}
 
 	if username == "" {
-		username, err = u.PromptForUser()
+		username, err = promptForUser(ui)
 		if err != nil {
 			return fmt.Errorf("failed to get username: %w", err)
 		}
 	}
 
 	// Validate or create user
-	u.ui.Step("Validating User Account")
-	if err := u.ValidateUser(username); err != nil {
+	ui.Step("Validating User Account")
+	if err := validateUser(username, ui); err != nil {
 		// User doesn't exist, try to create
-		if err := u.CreateUserIfNeeded(username); err != nil {
+		if err := createUserIfNeeded(username, ui); err != nil {
 			return fmt.Errorf("user setup failed: %w", err)
 		}
 		// Validate again after creation
-		if err := u.ValidateUser(username); err != nil {
+		if err := validateUser(username, ui); err != nil {
 			return fmt.Errorf("user validation failed after creation: %w", err)
 		}
 	}
@@ -343,46 +330,46 @@ func (u *UserConfigurator) Run() error {
 	}
 
 	// Configure subuid/subgid
-	u.ui.Step("Checking Rootless Container Configuration")
-	if err := u.ConfigureSubuidSubgid(username); err != nil {
+	ui.Step("Checking Rootless Container Configuration")
+	if err := configureSubuidSubgid(username, ui); err != nil {
 		return fmt.Errorf("failed to configure subuid/subgid: %w", err)
 	}
 
 	// Optional: Setup shell
-	u.ui.Step("Shell Configuration")
-	if err := u.SetupShell(username); err != nil {
-		u.ui.Warning(fmt.Sprintf("Shell setup failed: %v", err))
+	ui.Step("Shell Configuration")
+	if err := setupShell(username, ui); err != nil {
+		ui.Warning(fmt.Sprintf("Shell setup failed: %v", err))
 		// Non-critical error, continue
 	}
 
 	// Get timezone information
-	u.ui.Step("System Information")
-	if err := u.GetTimezoneInfo(); err != nil {
-		u.ui.Warning(fmt.Sprintf("Failed to get timezone info: %v", err))
+	ui.Step("System Information")
+	if err := getTimezoneInfo(cfg, ui); err != nil {
+		ui.Warning(fmt.Sprintf("Failed to get timezone info: %v", err))
 		// Non-critical error, continue
 	}
 
 	// Save configuration
-	u.ui.Step("Saving Configuration")
-	if err := u.config.Set("HOMELAB_USER", username); err != nil {
+	ui.Step("Saving Configuration")
+	if err := cfg.Set("HOMELAB_USER", username); err != nil {
 		return fmt.Errorf("failed to save homelab user: %w", err)
 	}
 
-	if err := u.config.Set("PUID", fmt.Sprintf("%d", uid)); err != nil {
+	if err := cfg.Set("PUID", fmt.Sprintf("%d", uid)); err != nil {
 		return fmt.Errorf("failed to save PUID: %w", err)
 	}
 
-	if err := u.config.Set("PGID", fmt.Sprintf("%d", gid)); err != nil {
+	if err := cfg.Set("PGID", fmt.Sprintf("%d", gid)); err != nil {
 		return fmt.Errorf("failed to save PGID: %w", err)
 	}
 
-	u.ui.Print("")
-	u.ui.Separator()
-	u.ui.Success("✓ User configuration completed successfully")
-	u.ui.Infof("Homelab user: %s (UID: %d, GID: %d)", username, uid, gid)
+	ui.Print("")
+	ui.Separator()
+	ui.Success("✓ User configuration completed successfully")
+	ui.Infof("Homelab user: %s (UID: %d, GID: %d)", username, uid, gid)
 
 	// Create completion marker
-	if err := u.config.MarkComplete(userCompletionMarker); err != nil {
+	if err := cfg.MarkComplete(userCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

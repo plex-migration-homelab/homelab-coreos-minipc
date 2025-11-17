@@ -8,51 +8,39 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
-// PreflightChecker performs system validation checks before setup begins
-type PreflightChecker struct {
-	ui     *ui.UI
-	config *config.Config
-}
+const preflightCompletionMarker = "preflight-complete"
 
-// NewPreflightChecker creates a new PreflightChecker instance
-func NewPreflightChecker(ui *ui.UI, cfg *config.Config) *PreflightChecker {
-	return &PreflightChecker{
-		ui:     ui,
-		config: cfg,
-	}
-}
-
-// CheckRpmOstree verifies the system is running rpm-ostree
-func (p *PreflightChecker) CheckRpmOstree() error {
-	p.ui.Info("Checking for rpm-ostree system...")
+// checkRpmOstree verifies the system is running rpm-ostree
+func checkRpmOstree(ui *ui.UI) error {
+	ui.Info("Checking for rpm-ostree system...")
 
 	if !system.IsRpmOstreeSystem() {
-		p.ui.Error("This system does not appear to be running rpm-ostree")
-		p.ui.Info("These setup scripts are designed for UBlue uCore (rpm-ostree based)")
-		p.ui.Info("Please use the appropriate setup scripts for your system")
+		ui.Error("This system does not appear to be running rpm-ostree")
+		ui.Info("These setup scripts are designed for UBlue uCore (rpm-ostree based)")
+		ui.Info("Please use the appropriate setup scripts for your system")
 		return fmt.Errorf("not an rpm-ostree system")
 	}
 
-	p.ui.Success("Confirmed: Running on rpm-ostree system")
+	ui.Success("Confirmed: Running on rpm-ostree system")
 
 	// Get and display rpm-ostree status
 	status, err := system.GetRpmOstreeStatus()
 	if err != nil {
-		p.ui.Warning(fmt.Sprintf("Could not get detailed rpm-ostree status: %v", err))
+		ui.Warning(fmt.Sprintf("Could not get detailed rpm-ostree status: %v", err))
 		return nil
 	}
 
 	// Just log that we got the status (parsing JSON would require encoding/json)
 	if len(status) > 0 {
-		p.ui.Info("Successfully retrieved rpm-ostree deployment information")
+		ui.Info("Successfully retrieved rpm-ostree deployment information")
 	}
 
 	return nil
 }
 
-// CheckRequiredPackages verifies all required packages are installed
-func (p *PreflightChecker) CheckRequiredPackages() error {
-	p.ui.Info("Checking packages...")
+// checkRequiredPackages verifies all required packages are installed
+func checkRequiredPackages(ui *ui.UI) error {
+	ui.Info("Checking packages...")
 
 	// Core packages that are always needed
 	corePackages := []string{}
@@ -73,95 +61,95 @@ func (p *PreflightChecker) CheckRequiredPackages() error {
 		missingPackages := []string{}
 		for _, pkg := range corePackages {
 			if results[pkg] {
-				p.ui.Successf("  ✓ %s is installed", pkg)
+				ui.Successf("  ✓ %s is installed", pkg)
 			} else {
-				p.ui.Errorf("  ✗ %s is NOT installed", pkg)
+				ui.Errorf("  ✗ %s is NOT installed", pkg)
 				missingPackages = append(missingPackages, pkg)
 			}
 		}
 
 		if len(missingPackages) > 0 {
-			p.ui.Error("Missing required packages")
-			p.ui.Info("To install them, run:")
+			ui.Error("Missing required packages")
+			ui.Info("To install them, run:")
 			for _, pkg := range missingPackages {
-				p.ui.Infof("  sudo rpm-ostree install %s", pkg)
+				ui.Infof("  sudo rpm-ostree install %s", pkg)
 			}
-			p.ui.Info("Then reboot the system:")
-			p.ui.Info("  sudo systemctl reboot")
+			ui.Info("Then reboot the system:")
+			ui.Info("  sudo systemctl reboot")
 			return fmt.Errorf("missing required packages: %v", missingPackages)
 		}
 	}
 
 	// Check optional packages (warnings only)
 	if len(optionalPackages) > 0 {
-		p.ui.Info("Checking optional packages...")
+		ui.Info("Checking optional packages...")
 		results, err := system.CheckMultiplePackages(optionalPackages)
 		if err != nil {
-			p.ui.Warning(fmt.Sprintf("Failed to check optional packages: %v", err))
+			ui.Warning(fmt.Sprintf("Failed to check optional packages: %v", err))
 		} else {
 			missingOptional := []string{}
 			for _, pkg := range optionalPackages {
 				if results[pkg] {
-					p.ui.Successf("  ✓ %s is installed", pkg)
+					ui.Successf("  ✓ %s is installed", pkg)
 				} else {
-					p.ui.Infof("  - %s is not installed (optional)", pkg)
+					ui.Infof("  - %s is not installed (optional)", pkg)
 					missingOptional = append(missingOptional, pkg)
 				}
 			}
 
 			if len(missingOptional) > 0 {
-				p.ui.Info("Optional packages can be installed later if needed:")
+				ui.Info("Optional packages can be installed later if needed:")
 				for _, pkg := range missingOptional {
-					p.ui.Infof("  sudo rpm-ostree install %s", pkg)
+					ui.Infof("  sudo rpm-ostree install %s", pkg)
 				}
 			}
 		}
 	}
 
-	p.ui.Success("Package check completed")
+	ui.Success("Package check completed")
 	return nil
 }
 
-// CheckContainerRuntime verifies a container runtime is available
-func (p *PreflightChecker) CheckContainerRuntime() error {
-	p.ui.Info("Checking container runtime...")
+// checkContainerRuntime verifies a container runtime is available
+func checkContainerRuntime(ui *ui.UI) error {
+	ui.Info("Checking container runtime...")
 
 	// Check for podman first (preferred)
 	if system.CommandExists("podman") {
-		p.ui.Success("  ✓ Podman is available")
+		ui.Success("  ✓ Podman is available")
 
 		// Check for podman-compose
 		if system.CommandExists("podman-compose") {
-			p.ui.Success("  ✓ podman-compose is available")
+			ui.Success("  ✓ podman-compose is available")
 		} else {
-			p.ui.Warning("  podman-compose not found (can be installed later)")
+			ui.Warning("  podman-compose not found (can be installed later)")
 		}
 		return nil
 	}
 
 	// Check for docker as fallback
 	if system.CommandExists("docker") {
-		p.ui.Success("  ✓ Docker is available")
+		ui.Success("  ✓ Docker is available")
 
 		// Check for docker-compose
 		if system.CommandExists("docker-compose") {
-			p.ui.Success("  ✓ docker-compose is available")
+			ui.Success("  ✓ docker-compose is available")
 		} else {
-			p.ui.Warning("  docker-compose not found (can be installed later)")
+			ui.Warning("  docker-compose not found (can be installed later)")
 		}
 		return nil
 	}
 
-	p.ui.Error("No container runtime found (podman or docker required)")
-	p.ui.Info("To install podman:")
-	p.ui.Info("  sudo rpm-ostree install podman podman-compose")
-	p.ui.Info("  sudo systemctl reboot")
+	ui.Error("No container runtime found (podman or docker required)")
+	ui.Info("To install podman:")
+	ui.Info("  sudo rpm-ostree install podman podman-compose")
+	ui.Info("  sudo systemctl reboot")
 	return fmt.Errorf("no container runtime available")
 }
 
-// CheckSudoAccess validates sudo is available and configured
-func (p *PreflightChecker) CheckSudoAccess() error {
-	p.ui.Info("Checking sudo access...")
+// checkSudoAccess validates sudo is available and configured
+func checkSudoAccess(ui *ui.UI) error {
+	ui.Info("Checking sudo access...")
 
 	sudoChecker := system.NewSudoChecker()
 
@@ -171,31 +159,31 @@ func (p *PreflightChecker) CheckSudoAccess() error {
 	}
 
 	if requiresPwd {
-		p.ui.Warning("Sudo requires password authentication")
-		p.ui.Info("For unattended operation, configure passwordless sudo")
-		p.ui.Print("")
-		p.ui.Info("Quick setup:")
-		p.ui.Info("  echo '$USER ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/$USER")
-		p.ui.Info("  sudo chmod 440 /etc/sudoers.d/$USER")
-		p.ui.Print("")
+		ui.Warning("Sudo requires password authentication")
+		ui.Info("For unattended operation, configure passwordless sudo")
+		ui.Print("")
+		ui.Info("Quick setup:")
+		ui.Info("  echo '$USER ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/$USER")
+		ui.Info("  sudo chmod 440 /etc/sudoers.d/$USER")
+		ui.Print("")
 
 		// Try to authenticate once
-		p.ui.Info("Validating sudo access (you may be prompted for password)...")
+		ui.Info("Validating sudo access (you may be prompted for password)...")
 		if err := sudoChecker.ValidateAccess(); err != nil {
-			p.ui.Error("Failed to authenticate with sudo")
+			ui.Error("Failed to authenticate with sudo")
 			return fmt.Errorf("sudo authentication failed: %w", err)
 		}
-		p.ui.Success("Sudo access validated (credentials cached)")
+		ui.Success("Sudo access validated (credentials cached)")
 	} else {
-		p.ui.Success("Passwordless sudo is configured")
+		ui.Success("Passwordless sudo is configured")
 	}
 
 	return nil
 }
 
-// CheckNetworkConnectivity tests basic network connectivity
-func (p *PreflightChecker) CheckNetworkConnectivity() error {
-	p.ui.Info("Checking network connectivity...")
+// checkNetworkConnectivity tests basic network connectivity
+func checkNetworkConnectivity(ui *ui.UI) error {
+	ui.Info("Checking network connectivity...")
 
 	// Test connectivity to a reliable host
 	reachable, err := system.TestConnectivity("8.8.8.8", 3)
@@ -204,43 +192,43 @@ func (p *PreflightChecker) CheckNetworkConnectivity() error {
 	}
 
 	if !reachable {
-		p.ui.Error("No internet connectivity detected")
-		p.ui.Info("Please check:")
-		p.ui.Info("  1. Network cable is connected")
-		p.ui.Info("  2. Network configuration is correct")
-		p.ui.Info("  3. Default gateway is reachable")
+		ui.Error("No internet connectivity detected")
+		ui.Info("Please check:")
+		ui.Info("  1. Network cable is connected")
+		ui.Info("  2. Network configuration is correct")
+		ui.Info("  3. Default gateway is reachable")
 		return fmt.Errorf("no internet connectivity")
 	}
 
-	p.ui.Success("Internet connectivity confirmed")
+	ui.Success("Internet connectivity confirmed")
 
 	// Get and display default gateway
 	gateway, err := system.GetDefaultGateway()
 	if err != nil {
-		p.ui.Warning(fmt.Sprintf("Could not determine default gateway: %v", err))
+		ui.Warning(fmt.Sprintf("Could not determine default gateway: %v", err))
 	} else {
-		p.ui.Infof("Default gateway: %s", gateway)
+		ui.Infof("Default gateway: %s", gateway)
 
 		// Test gateway connectivity
 		gwReachable, _ := system.TestConnectivity(gateway, 2)
 		if gwReachable {
-			p.ui.Success("Default gateway is reachable")
+			ui.Success("Default gateway is reachable")
 		} else {
-			p.ui.Warning("Default gateway is not responding to ping")
+			ui.Warning("Default gateway is not responding to ping")
 		}
 	}
 
 	return nil
 }
 
-// CheckNFSServer validates NFS server is accessible if configured
-func (p *PreflightChecker) CheckNFSServer(host string) error {
+// checkNFSServer validates NFS server is accessible if configured
+func checkNFSServer(host string, ui *ui.UI) error {
 	if host == "" {
-		p.ui.Info("NFS server not configured yet, skipping NFS check")
+		ui.Info("NFS server not configured yet, skipping NFS check")
 		return nil
 	}
 
-	p.ui.Infof("Checking NFS server: %s", host)
+	ui.Infof("Checking NFS server: %s", host)
 
 	// First check basic connectivity
 	reachable, err := system.TestConnectivity(host, 5)
@@ -249,15 +237,15 @@ func (p *PreflightChecker) CheckNFSServer(host string) error {
 	}
 
 	if !reachable {
-		p.ui.Error(fmt.Sprintf("NFS server %s is not reachable", host))
-		p.ui.Info("Please check:")
-		p.ui.Info("  1. NFS server is powered on")
-		p.ui.Info("  2. Network connectivity to the server")
-		p.ui.Info("  3. Firewall rules allow NFS traffic")
+		ui.Error(fmt.Sprintf("NFS server %s is not reachable", host))
+		ui.Info("Please check:")
+		ui.Info("  1. NFS server is powered on")
+		ui.Info("  2. Network connectivity to the server")
+		ui.Info("  3. Firewall rules allow NFS traffic")
 		return fmt.Errorf("NFS server %s is unreachable", host)
 	}
 
-	p.ui.Success(fmt.Sprintf("NFS server %s is reachable", host))
+	ui.Success(fmt.Sprintf("NFS server %s is reachable", host))
 
 	// Check if NFS exports are available
 	hasExports, err := system.CheckNFSServer(host)
@@ -266,105 +254,105 @@ func (p *PreflightChecker) CheckNFSServer(host string) error {
 	}
 
 	if !hasExports {
-		p.ui.Warning("NFS server is reachable but showmount failed")
-		p.ui.Info("This might indicate:")
-		p.ui.Info("  1. NFS service is not running on the server")
-		p.ui.Info("  2. No exports are configured")
-		p.ui.Info("  3. Firewall is blocking NFS RPC calls")
+		ui.Warning("NFS server is reachable but showmount failed")
+		ui.Info("This might indicate:")
+		ui.Info("  1. NFS service is not running on the server")
+		ui.Info("  2. No exports are configured")
+		ui.Info("  3. Firewall is blocking NFS RPC calls")
 		return fmt.Errorf("NFS server has no accessible exports")
 	}
 
-	p.ui.Success("NFS server has accessible exports")
+	ui.Success("NFS server has accessible exports")
 
 	// Try to get and display exports
 	exports, err := system.GetNFSExports(host)
 	if err == nil && exports != "" {
-		p.ui.Info("Available NFS exports:")
-		p.ui.Print(exports)
+		ui.Info("Available NFS exports:")
+		ui.Print(exports)
 	}
 
 	return nil
 }
 
-// RunAll executes all preflight checks
-func (p *PreflightChecker) RunAll() error {
+// RunPreflightChecks executes all preflight checks
+func RunPreflightChecks(cfg *config.Config, ui *ui.UI) error {
 	// Check if already completed
-	if p.config.IsComplete("preflight-complete") {
-		p.ui.Info("Preflight checks already completed (marker found)")
-		p.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/preflight-complete")
+	if cfg.IsComplete(preflightCompletionMarker) {
+		ui.Info("Preflight checks already completed (marker found)")
+		ui.Info("To re-run, remove marker: ~/.local/homelab-setup/" + preflightCompletionMarker)
 		return nil
 	}
 
-	p.ui.Header("Pre-flight System Validation")
-	p.ui.Info("Verifying system requirements before setup...")
-	p.ui.Print("")
+	ui.Header("Pre-flight System Validation")
+	ui.Info("Verifying system requirements before setup...")
+	ui.Print("")
 
 	hasErrors := false
 	errorMessages := []string{}
 
 	// Run rpm-ostree check
-	p.ui.Step("Checking Operating System")
-	if err := p.CheckRpmOstree(); err != nil {
+	ui.Step("Checking Operating System")
+	if err := checkRpmOstree(ui); err != nil {
 		hasErrors = true
 		errorMessages = append(errorMessages, err.Error())
 	}
 
 	// Run package checks
-	p.ui.Step("Checking Required Packages")
-	if err := p.CheckRequiredPackages(); err != nil {
+	ui.Step("Checking Required Packages")
+	if err := checkRequiredPackages(ui); err != nil {
 		hasErrors = true
 		errorMessages = append(errorMessages, err.Error())
 	}
 
 	// Run container runtime check
-	p.ui.Step("Checking Container Runtime")
-	if err := p.CheckContainerRuntime(); err != nil {
+	ui.Step("Checking Container Runtime")
+	if err := checkContainerRuntime(ui); err != nil {
 		hasErrors = true
 		errorMessages = append(errorMessages, err.Error())
 	}
 
 	// Run sudo access check
-	p.ui.Step("Checking Sudo Access")
-	if err := p.CheckSudoAccess(); err != nil {
+	ui.Step("Checking Sudo Access")
+	if err := checkSudoAccess(ui); err != nil {
 		hasErrors = true
 		errorMessages = append(errorMessages, err.Error())
 	}
 
 	// Run network connectivity check
-	p.ui.Step("Checking Network Connectivity")
-	if err := p.CheckNetworkConnectivity(); err != nil {
+	ui.Step("Checking Network Connectivity")
+	if err := checkNetworkConnectivity(ui); err != nil {
 		hasErrors = true
 		errorMessages = append(errorMessages, err.Error())
 	}
 
 	// Check NFS server if configured
-	nfsServer := p.config.GetOrDefault("NFS_SERVER", "")
+	nfsServer := cfg.GetOrDefault("NFS_SERVER", "")
 	if nfsServer != "" {
-		p.ui.Step("Checking NFS Server")
-		if err := p.CheckNFSServer(nfsServer); err != nil {
+		ui.Step("Checking NFS Server")
+		if err := checkNFSServer(nfsServer, ui); err != nil {
 			// NFS errors are warnings, not critical errors
-			p.ui.Warning(err.Error())
+			ui.Warning(err.Error())
 		}
 	}
 
-	p.ui.Print("")
-	p.ui.Separator()
+	ui.Print("")
+	ui.Separator()
 
 	if hasErrors {
-		p.ui.Error("Pre-flight checks FAILED")
-		p.ui.Info("Please resolve the issues above before continuing")
-		p.ui.Print("")
+		ui.Error("Pre-flight checks FAILED")
+		ui.Info("Please resolve the issues above before continuing")
+		ui.Print("")
 		for i, msg := range errorMessages {
-			p.ui.Errorf("%d. %s", i+1, msg)
+			ui.Errorf("%d. %s", i+1, msg)
 		}
 		return fmt.Errorf("preflight checks failed with %d error(s)", len(errorMessages))
 	}
 
-	p.ui.Success("✓ All pre-flight checks PASSED")
-	p.ui.Info("System is ready for homelab setup")
+	ui.Success("✓ All pre-flight checks PASSED")
+	ui.Info("System is ready for homelab setup")
 
 	// Create completion marker
-	if err := p.config.MarkComplete("preflight-complete"); err != nil {
+	if err := cfg.MarkComplete(preflightCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

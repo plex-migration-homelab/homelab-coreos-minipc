@@ -126,8 +126,7 @@ func runPreflight(ctx *SetupContext) error {
 		removeMarkerIfRerun(ctx.UI, ctx.Config, "preflight-complete", rerun)
 	}
 
-	// Use the RunAll method that exists in PreflightChecker
-	return steps.NewPreflightChecker(ctx.UI, ctx.Config).RunAll()
+	return steps.RunPreflightChecks(ctx.Config, ctx.UI)
 }
 
 func runUser(ctx *SetupContext) error {
@@ -141,8 +140,7 @@ func runUser(ctx *SetupContext) error {
 		removeMarkerIfRerun(ctx.UI, ctx.Config, "user-setup-complete", rerun)
 	}
 
-	// Use the Run method that exists in UserConfigurator
-	return steps.NewUserConfigurator(ctx.Config, ctx.UI).Run()
+	return steps.RunUserSetup(ctx.Config, ctx.UI)
 }
 
 func runDirectory(ctx *SetupContext) error {
@@ -156,8 +154,7 @@ func runDirectory(ctx *SetupContext) error {
 		removeMarkerIfRerun(ctx.UI, ctx.Config, "directory-setup-complete", rerun)
 	}
 
-	// Use the Run method that exists in DirectorySetup
-	return steps.NewDirectorySetup(ctx.Config, ctx.UI).Run()
+	return steps.RunDirectorySetup(ctx.Config, ctx.UI)
 }
 
 func runWireGuard(ctx *SetupContext) error {
