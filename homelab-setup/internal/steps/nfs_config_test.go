@@ -243,6 +243,26 @@ func TestPathToUnitName(t *testing.T) {
 	}
 }
 
+func TestMountPointToUnitName(t *testing.T) {
+	tests := []struct {
+		name       string
+		mountPoint string
+		expected   string
+	}{
+		{name: "canonical path", mountPoint: "/mnt/nas-media", expected: "mnt-nas-media.mount"},
+		{name: "trailing slash", mountPoint: "/mnt/nas-media/", expected: "mnt-nas-media.mount"},
+		{name: "multiple trailing slashes", mountPoint: "/mnt/nas-media///", expected: "mnt-nas-media.mount"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mountPointToUnitName(tt.mountPoint); got != tt.expected {
+				t.Fatalf("mountPointToUnitName(%q) = %q, want %q", tt.mountPoint, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestCheckNFSUtilsWhenInstalled(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
