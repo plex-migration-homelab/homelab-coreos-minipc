@@ -111,7 +111,7 @@ func RunStep(ctx *SetupContext, shortName string) error {
 
 // AddWireGuardPeer invokes the WireGuard peer workflow helper.
 func AddWireGuardPeer(ctx *SetupContext, opts *steps.WireGuardPeerWorkflowOptions) error {
-	return steps.NewWireGuardSetup(ctx.Config, ctx.UI).AddPeerWorkflow(opts)
+	return steps.RunWireGuardPeerWorkflow(ctx.Config, ctx.UI, opts)
 }
 
 // Individual step runners
@@ -168,9 +168,9 @@ func runWireGuard(ctx *SetupContext) error {
 		removeMarkerIfRerun(ctx.UI, ctx.Config, "wireguard-setup-complete", rerun)
 	}
 
-	// Use the Run method that exists in WireGuardSetup
+	// Use RunWireGuardSetup function
 	// This handles all the logic including prompting, key generation, config writing, etc.
-	return steps.NewWireGuardSetup(ctx.Config, ctx.UI).Run()
+	return steps.RunWireGuardSetup(ctx.Config, ctx.UI)
 }
 
 func runNFS(ctx *SetupContext) error {
@@ -184,8 +184,8 @@ func runNFS(ctx *SetupContext) error {
 		removeMarkerIfRerun(ctx.UI, ctx.Config, "nfs-setup-complete", rerun)
 	}
 
-	// Use the Run method that exists in NFSConfigurator
-	return steps.NewNFSConfigurator(ctx.Config, ctx.UI).Run()
+	// Use RunNFSSetup function
+	return steps.RunNFSSetup(ctx.Config, ctx.UI)
 }
 
 func runContainer(ctx *SetupContext) error {
@@ -199,8 +199,8 @@ func runContainer(ctx *SetupContext) error {
 		removeMarkerIfRerun(ctx.UI, ctx.Config, "container-setup-complete", rerun)
 	}
 
-	// Use the Run method that exists in ContainerSetup
-	return steps.NewContainerSetup(ctx.Config, ctx.UI).Run()
+	// Use RunContainerSetup function
+	return steps.RunContainerSetup(ctx.Config, ctx.UI)
 }
 
 func runDeployment(ctx *SetupContext) error {
@@ -214,8 +214,8 @@ func runDeployment(ctx *SetupContext) error {
 		removeMarkerIfRerun(ctx.UI, ctx.Config, "service-deployment-complete", rerun)
 	}
 
-	// Use the Run method that exists in Deployment
-	return steps.NewDeployment(ctx.Config, ctx.UI).Run()
+	// Use RunDeployment function
+	return steps.RunDeployment(ctx.Config, ctx.UI)
 }
 
 // RunAll runs all setup steps in order

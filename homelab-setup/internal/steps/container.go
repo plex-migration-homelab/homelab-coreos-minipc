@@ -15,34 +15,22 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
-// ContainerSetup handles container stack setup and configuration
-type ContainerSetup struct {
-	config *config.Config
-	ui     *ui.UI
-}
+const containerSetupCompletionMarker = "container-setup-complete"
 
 // getContainersBase returns the base directory for container service files
-func (c *ContainerSetup) getContainersBase() string {
+func getContainersBase(cfg *config.Config) string {
 	// Use CONTAINERS_BASE which should be set to /srv/containers
-	return c.config.GetOrDefault(config.KeyContainersBase, "/srv/containers")
+	return cfg.GetOrDefault(config.KeyContainersBase, "/srv/containers")
 }
 
 // serviceDirectory returns the directory path for a given service.
-func (c *ContainerSetup) serviceDirectory(serviceName string) string {
-	return filepath.Join(c.getContainersBase(), serviceName)
+func serviceDirectory(cfg *config.Config, serviceName string) string {
+	return filepath.Join(getContainersBase(cfg), serviceName)
 }
 
-// NewContainerSetup creates a new ContainerSetup instance
-func NewContainerSetup(cfg *config.Config, ui *ui.UI) *ContainerSetup {
-	return &ContainerSetup{
-		config: cfg,
-		ui:     ui,
-	}
-}
-
-// FindTemplateDirectory locates compose templates
-func (c *ContainerSetup) FindTemplateDirectory() (string, error) {
-	c.ui.Step("Locating Compose Templates")
+// findTemplateDirectory locates compose templates
+func findTemplateDirectory(cfg *config.Config, ui *ui.UI) (string, error) {
+	ui.Step("Locating Compose Templates")
 
 	// Check home setup directory first
 	homeDir := os.Getenv("HOME")
@@ -50,37 +38,37 @@ func (c *ContainerSetup) FindTemplateDirectory() (string, error) {
 
 	if exists, _ := system.DirectoryExists(templateDirHome); exists {
 		// Count YAML files
-		count, _ := c.countYAMLFiles(templateDirHome)
+		count, _ := countYAMLFiles(templateDirHome)
 		if count > 0 {
-			c.ui.Successf("Found templates in: %s (%d YAML file(s))", templateDirHome, count)
+			ui.Successf("Found templates in: %s (%d YAML file(s))", templateDirHome, count)
 			return templateDirHome, nil
 		}
-		c.ui.Warningf("Directory exists but contains no YAML files: %s", templateDirHome)
+		ui.Warningf("Directory exists but contains no YAML files: %s", templateDirHome)
 	}
 
 	// Check /usr/share as fallback
 	templateDirUsr := "/usr/share/compose-setup"
 	if exists, _ := system.DirectoryExists(templateDirUsr); exists {
-		count, _ := c.countYAMLFiles(templateDirUsr)
+		count, _ := countYAMLFiles(templateDirUsr)
 		if count > 0 {
-			c.ui.Successf("Found templates in: %s (%d YAML file(s))", templateDirUsr, count)
+			ui.Successf("Found templates in: %s (%d YAML file(s))", templateDirUsr, count)
 			return templateDirUsr, nil
 		}
-		c.ui.Warningf("Directory exists but contains no YAML files: %s", templateDirUsr)
+		ui.Warningf("Directory exists but contains no YAML files: %s", templateDirUsr)
 	}
 
-	c.ui.Error("No compose templates found in any location")
-	c.ui.Info("Searched locations:")
-	c.ui.Infof("  - %s", templateDirHome)
-	c.ui.Infof("  - %s", templateDirUsr)
-	c.ui.Print("")
-	c.ui.Info("Expected to find .yml or .yaml files in one of these directories")
+	ui.Error("No compose templates found in any location")
+	ui.Info("Searched locations:")
+	ui.Infof("  - %s", templateDirHome)
+	ui.Infof("  - %s", templateDirUsr)
+	ui.Print("")
+	ui.Info("Expected to find .yml or .yaml files in one of these directories")
 
 	return "", fmt.Errorf("no compose templates found")
 }
 
 // countYAMLFiles counts YAML files in a directory
-func (c *ContainerSetup) countYAMLFiles(dir string) (int, error) {
+func countYAMLFiles(dir string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0, err
@@ -100,10 +88,10 @@ func (c *ContainerSetup) countYAMLFiles(dir string) (int, error) {
 	return count, nil
 }
 
-// DiscoverStacks discovers available container stacks
-func (c *ContainerSetup) DiscoverStacks(templateDir string) (map[string]string, error) {
-	c.ui.Step("Discovering Available Container Stacks")
-	c.ui.Infof("Scanning directory: %s", templateDir)
+// discoverStacks discovers available container stacks
+func discoverStacks(cfg *config.Config, ui *ui.UI, templateDir string) (map[string]string, error) {
+	ui.Step("Discovering Available Container Stacks")
+	ui.Infof("Scanning directory: %s", templateDir)
 
 	// Exclude patterns
 	excludePatterns := []string{
@@ -141,7 +129,7 @@ func (c *ContainerSetup) DiscoverStacks(templateDir string) (map[string]string, 
 		for _, pattern := range excludePatterns {
 			matched, _ := filepath.Match(pattern, filename)
 			if matched {
-				c.ui.Infof("Excluding: %s (matches pattern: %s)", filename, pattern)
+				ui.Infof("Excluding: %s (matches pattern: %s)", filename, pattern)
 				excludedCount++
 				shouldExclude = true
 				break
@@ -155,35 +143,35 @@ func (c *ContainerSetup) DiscoverStacks(templateDir string) (map[string]string, 
 		// Get service name (filename without extension)
 		serviceName := strings.TrimSuffix(filename, ext)
 		stacks[serviceName] = filename
-		c.ui.Successf("Found stack: %s (%s)", serviceName, filename)
+		ui.Successf("Found stack: %s (%s)", serviceName, filename)
 	}
 
 	if len(stacks) == 0 {
-		c.ui.Error("No valid compose stack files discovered")
-		c.ui.Infof("Directory checked: %s", templateDir)
-		c.ui.Infof("Total YAML files found: %d", totalYAML)
-		c.ui.Infof("Files excluded by patterns: %d", excludedCount)
-		c.ui.Print("")
-		c.ui.Info("Exclude patterns:")
+		ui.Error("No valid compose stack files discovered")
+		ui.Infof("Directory checked: %s", templateDir)
+		ui.Infof("Total YAML files found: %d", totalYAML)
+		ui.Infof("Files excluded by patterns: %d", excludedCount)
+		ui.Print("")
+		ui.Info("Exclude patterns:")
 		for _, pattern := range excludePatterns {
-			c.ui.Infof("  - %s", pattern)
+			ui.Infof("  - %s", pattern)
 		}
-		c.ui.Print("")
-		c.ui.Info("Stack files should be named like: media.yml, web.yml, cloud.yml")
-		c.ui.Info("Excluded files: .env.example, README.md, .hidden files")
+		ui.Print("")
+		ui.Info("Stack files should be named like: media.yml, web.yml, cloud.yml")
+		ui.Info("Excluded files: .env.example, README.md, .hidden files")
 		return nil, fmt.Errorf("no valid stacks found")
 	}
 
-	c.ui.Successf("Discovered %d valid container stack(s) (excluded %d file(s))", len(stacks), excludedCount)
+	ui.Successf("Discovered %d valid container stack(s) (excluded %d file(s))", len(stacks), excludedCount)
 	return stacks, nil
 }
 
-// SelectStacks allows user to select which stacks to setup
-func (c *ContainerSetup) SelectStacks(stacks map[string]string) ([]string, error) {
-	c.ui.Step("Container Stack Selection")
-	c.ui.Print("")
-	c.ui.Info("Available container stacks:")
-	c.ui.Print("")
+// selectStacks allows user to select which stacks to setup
+func selectStacks(cfg *config.Config, ui *ui.UI, stacks map[string]string) ([]string, error) {
+	ui.Step("Container Stack Selection")
+	ui.Print("")
+	ui.Info("Available container stacks:")
+	ui.Print("")
 
 	// Sort stack names for consistent ordering
 	var stackNames []string
@@ -194,16 +182,16 @@ func (c *ContainerSetup) SelectStacks(stacks map[string]string) ([]string, error
 
 	// Display available stacks
 	for i, name := range stackNames {
-		c.ui.Printf("  %d) %s (%s)", i+1, name, stacks[name])
+		ui.Printf("  %d) %s (%s)", i+1, name, stacks[name])
 	}
-	c.ui.Printf("  %d) All stacks", len(stackNames)+1)
-	c.ui.Print("")
+	ui.Printf("  %d) All stacks", len(stackNames)+1)
+	ui.Print("")
 
 	// Prompt for selection
-	c.ui.Info("Select which container stacks to setup:")
-	c.ui.Info("  - You can select multiple stacks using Space, then press Enter")
-	c.ui.Info("  - Or select 'All stacks' to setup everything")
-	c.ui.Print("")
+	ui.Info("Select which container stacks to setup:")
+	ui.Info("  - You can select multiple stacks using Space, then press Enter")
+	ui.Info("  - Or select 'All stacks' to setup everything")
+	ui.Print("")
 
 	// Build options for multi-select
 	var options []string
@@ -213,7 +201,7 @@ func (c *ContainerSetup) SelectStacks(stacks map[string]string) ([]string, error
 	options = append(options, "All stacks")
 
 	// Use multi-select prompt
-	selectedIndices, err := c.ui.PromptMultiSelect("Select stacks to setup", options)
+	selectedIndices, err := ui.PromptMultiSelect("Select stacks to setup", options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prompt for stack selection: %w", err)
 	}
@@ -226,10 +214,10 @@ func (c *ContainerSetup) SelectStacks(stacks map[string]string) ([]string, error
 	allStacksIndex := len(stackNames)
 	for _, idx := range selectedIndices {
 		if idx == allStacksIndex {
-			c.ui.Success("Selected: All stacks")
+			ui.Success("Selected: All stacks")
 			// Save selected services to config before returning
-			if err := c.config.Set("SELECTED_SERVICES", strings.Join(stackNames, " ")); err != nil {
-				c.ui.Warning(fmt.Sprintf("Failed to save selected services: %v", err))
+			if err := cfg.Set("SELECTED_SERVICES", strings.Join(stackNames, " ")); err != nil {
+				ui.Warning(fmt.Sprintf("Failed to save selected services: %v", err))
 			}
 			return stackNames, nil
 		}
@@ -243,25 +231,25 @@ func (c *ContainerSetup) SelectStacks(stacks map[string]string) ([]string, error
 		}
 	}
 
-	c.ui.Success("Selected stacks:")
+	ui.Success("Selected stacks:")
 	for _, name := range selected {
-		c.ui.Infof("  - %s", name)
+		ui.Infof("  - %s", name)
 	}
-	c.ui.Print("")
+	ui.Print("")
 
 	// Save selected services to config
-	if err := c.config.Set("SELECTED_SERVICES", strings.Join(selected, " ")); err != nil {
-		c.ui.Warning(fmt.Sprintf("Failed to save selected services: %v", err))
+	if err := cfg.Set("SELECTED_SERVICES", strings.Join(selected, " ")); err != nil {
+		ui.Warning(fmt.Sprintf("Failed to save selected services: %v", err))
 	}
 
 	return selected, nil
 }
 
-// CopyTemplates copies selected compose templates to destination
-func (c *ContainerSetup) CopyTemplates(templateDir string, stacks map[string]string, selectedStacks []string) error {
-	c.ui.Step("Copying Compose Templates")
+// copyTemplates copies selected compose templates to destination
+func copyTemplates(cfg *config.Config, ui *ui.UI, templateDir string, stacks map[string]string, selectedStacks []string) error {
+	ui.Step("Copying Compose Templates")
 
-	setupUser := c.config.GetOrDefault("HOMELAB_USER", "")
+	setupUser := cfg.GetOrDefault("HOMELAB_USER", "")
 	if setupUser == "" {
 		return fmt.Errorf("homelab user not configured")
 	}
@@ -269,7 +257,7 @@ func (c *ContainerSetup) CopyTemplates(templateDir string, stacks map[string]str
 	for _, serviceName := range selectedStacks {
 		templateFile := stacks[serviceName]
 		srcPath := filepath.Join(templateDir, templateFile)
-		dstDir := c.serviceDirectory(serviceName)
+		dstDir := serviceDirectory(cfg, serviceName)
 		dstPath := filepath.Join(dstDir, "compose.yml")
 
 		// Ensure destination directory exists
@@ -278,7 +266,7 @@ func (c *ContainerSetup) CopyTemplates(templateDir string, stacks map[string]str
 		}
 
 		// Copy template
-		c.ui.Infof("Copying: %s → %s", templateFile, dstPath)
+		ui.Infof("Copying: %s → %s", templateFile, dstPath)
 		if err := system.CopyFile(srcPath, dstPath); err != nil {
 			return fmt.Errorf("failed to copy %s: %w", templateFile, err)
 		}
@@ -292,97 +280,97 @@ func (c *ContainerSetup) CopyTemplates(templateDir string, stacks map[string]str
 			return fmt.Errorf("failed to set permissions on %s: %w", dstPath, err)
 		}
 
-		c.ui.Successf("✓ %s/compose.yml", serviceName)
+		ui.Successf("✓ %s/compose.yml", serviceName)
 
 		// Also create docker-compose.yml symlink for compatibility
 		altDstPath := filepath.Join(dstDir, "docker-compose.yml")
 		if exists, _ := system.FileExists(altDstPath); !exists {
 			if err := system.CreateSymlink("compose.yml", altDstPath); err != nil {
-				c.ui.Warning(fmt.Sprintf("Failed to create symlink: %v", err))
+				ui.Warning(fmt.Sprintf("Failed to create symlink: %v", err))
 			}
 		}
 	}
 
-	c.ui.Successf("Copied %d compose file(s)", len(selectedStacks))
+	ui.Successf("Copied %d compose file(s)", len(selectedStacks))
 	return nil
 }
 
-// CreateBaseEnvConfig creates base environment configuration
-func (c *ContainerSetup) CreateBaseEnvConfig() error {
-	c.ui.Step("Creating Base Environment Configuration")
+// createBaseEnvConfig creates base environment configuration
+func createBaseEnvConfig(cfg *config.Config, ui *ui.UI) error {
+	ui.Step("Creating Base Environment Configuration")
 
 	// Load or prompt for configuration values
-	puid := c.config.GetOrDefault("PUID", "1000")
-	pgid := c.config.GetOrDefault("PGID", "1000")
-	tz := c.config.GetOrDefault("TZ", "America/Chicago")
+	puid := cfg.GetOrDefault("PUID", "1000")
+	pgid := cfg.GetOrDefault("PGID", "1000")
+	tz := cfg.GetOrDefault("TZ", "America/Chicago")
 	// Try APPDATA_BASE first (new standard), fall back to APPDATA_PATH (legacy)
-	appdataPath := c.config.GetOrDefault("APPDATA_BASE", "")
+	appdataPath := cfg.GetOrDefault("APPDATA_BASE", "")
 	if appdataPath == "" {
-		appdataPath = c.config.GetOrDefault("APPDATA_PATH", "/var/lib/containers/appdata")
+		appdataPath = cfg.GetOrDefault("APPDATA_PATH", "/var/lib/containers/appdata")
 	}
 
 	// Save base config
-	if err := c.config.Set("ENV_PUID", puid); err != nil {
+	if err := cfg.Set("ENV_PUID", puid); err != nil {
 		return fmt.Errorf("failed to save ENV_PUID: %w", err)
 	}
-	if err := c.config.Set("ENV_PGID", pgid); err != nil {
+	if err := cfg.Set("ENV_PGID", pgid); err != nil {
 		return fmt.Errorf("failed to save ENV_PGID: %w", err)
 	}
-	if err := c.config.Set("ENV_TZ", tz); err != nil {
+	if err := cfg.Set("ENV_TZ", tz); err != nil {
 		return fmt.Errorf("failed to save ENV_TZ: %w", err)
 	}
-	if err := c.config.Set("ENV_APPDATA_PATH", appdataPath); err != nil {
+	if err := cfg.Set("ENV_APPDATA_PATH", appdataPath); err != nil {
 		return fmt.Errorf("failed to save ENV_APPDATA_PATH: %w", err)
 	}
 
-	c.ui.Success("Base configuration:")
-	c.ui.Infof("  PUID=%s", puid)
-	c.ui.Infof("  PGID=%s", pgid)
-	c.ui.Infof("  TZ=%s", tz)
-	c.ui.Infof("  APPDATA_PATH=%s", appdataPath)
+	ui.Success("Base configuration:")
+	ui.Infof("  PUID=%s", puid)
+	ui.Infof("  PGID=%s", pgid)
+	ui.Infof("  TZ=%s", tz)
+	ui.Infof("  APPDATA_PATH=%s", appdataPath)
 
 	return nil
 }
 
-// ConfigureStackEnv configures environment for a specific stack
-func (c *ContainerSetup) ConfigureStackEnv(serviceName string) error {
+// configureStackEnv configures environment for a specific stack
+func configureStackEnv(cfg *config.Config, ui *ui.UI, serviceName string) error {
 	switch serviceName {
 	case "media":
-		return c.configureMediaEnv()
+		return configureMediaEnv(cfg, ui)
 	case "web":
-		return c.configureWebEnv()
+		return configureWebEnv(cfg, ui)
 	case "cloud":
-		return c.configureCloudEnv()
+		return configureCloudEnv(cfg, ui)
 	default:
-		c.ui.Infof("No specific configuration for %s stack", serviceName)
+		ui.Infof("No specific configuration for %s stack", serviceName)
 		return nil
 	}
 }
 
 // configureMediaEnv configures media stack environment
-func (c *ContainerSetup) configureMediaEnv() error {
-	c.ui.Step("Configuring Media Stack Environment")
+func configureMediaEnv(cfg *config.Config, ui *ui.UI) error {
+	ui.Step("Configuring Media Stack Environment")
 
 	// Get Plex claim token
-	c.ui.Info("Plex Setup:")
-	c.ui.Info("  Get your claim token from: https://plex.tv/claim")
-	plexClaim, err := c.ui.PromptInput("Plex claim token (optional)", "")
+	ui.Info("Plex Setup:")
+	ui.Info("  Get your claim token from: https://plex.tv/claim")
+	plexClaim, err := ui.PromptInput("Plex claim token (optional)", "")
 	if err != nil {
 		return err
 	}
 	if plexClaim != "" {
-		if err := c.config.Set("PLEX_CLAIM_TOKEN", plexClaim); err != nil {
+		if err := cfg.Set("PLEX_CLAIM_TOKEN", plexClaim); err != nil {
 			return fmt.Errorf("failed to save PLEX_CLAIM_TOKEN: %w", err)
 		}
 	}
 
 	// Jellyfin public URL
-	jellyfinURL, err := c.ui.PromptInput("Jellyfin public URL (optional)", "")
+	jellyfinURL, err := ui.PromptInput("Jellyfin public URL (optional)", "")
 	if err != nil {
 		return err
 	}
 	if jellyfinURL != "" {
-		if err := c.config.Set("JELLYFIN_PUBLIC_URL", jellyfinURL); err != nil {
+		if err := cfg.Set("JELLYFIN_PUBLIC_URL", jellyfinURL); err != nil {
 			return fmt.Errorf("failed to save JELLYFIN_PUBLIC_URL: %w", err)
 		}
 	}
@@ -391,16 +379,16 @@ func (c *ContainerSetup) configureMediaEnv() error {
 }
 
 // configureWebEnv configures web stack environment
-func (c *ContainerSetup) configureWebEnv() error {
-	c.ui.Step("Configuring Web Stack Environment")
+func configureWebEnv(cfg *config.Config, ui *ui.UI) error {
+	ui.Step("Configuring Web Stack Environment")
 
 	// Overseerr API key (optional)
-	overseerrAPI, err := c.ui.PromptInput("Overseerr API key (optional, can configure later)", "")
+	overseerrAPI, err := ui.PromptInput("Overseerr API key (optional, can configure later)", "")
 	if err != nil {
 		return err
 	}
 	if overseerrAPI != "" {
-		if err := c.config.Set("OVERSEERR_API_KEY", overseerrAPI); err != nil {
+		if err := cfg.Set("OVERSEERR_API_KEY", overseerrAPI); err != nil {
 			return fmt.Errorf("failed to save OVERSEERR_API_KEY: %w", err)
 		}
 	}
@@ -409,168 +397,168 @@ func (c *ContainerSetup) configureWebEnv() error {
 }
 
 // configureCloudEnv configures cloud stack environment
-func (c *ContainerSetup) configureCloudEnv() error {
-	c.ui.Step("Configuring Cloud Stack Environment")
+func configureCloudEnv(cfg *config.Config, ui *ui.UI) error {
+	ui.Step("Configuring Cloud Stack Environment")
 
 	// Nextcloud configuration
-	c.ui.Info("Nextcloud Setup:")
-	c.ui.Print("")
+	ui.Info("Nextcloud Setup:")
+	ui.Print("")
 
 	// Admin credentials for initial setup
-	nextcloudAdminUser, err := c.ui.PromptInput("Nextcloud admin username", "admin")
+	nextcloudAdminUser, err := ui.PromptInput("Nextcloud admin username", "admin")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_ADMIN_USER", nextcloudAdminUser); err != nil {
+	if err := cfg.Set("NEXTCLOUD_ADMIN_USER", nextcloudAdminUser); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_ADMIN_USER: %w", err)
 	}
 
-	nextcloudAdminPass, err := c.ui.PromptPasswordConfirm("Nextcloud admin password")
+	nextcloudAdminPass, err := ui.PromptPasswordConfirm("Nextcloud admin password")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_ADMIN_PASSWORD", nextcloudAdminPass); err != nil {
+	if err := cfg.Set("NEXTCLOUD_ADMIN_PASSWORD", nextcloudAdminPass); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_ADMIN_PASSWORD: %w", err)
 	}
 
 	// Database credentials
-	nextcloudDBUser, err := c.ui.PromptInput("Nextcloud database username", "nc_user")
+	nextcloudDBUser, err := ui.PromptInput("Nextcloud database username", "nc_user")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_DB_USERNAME", nextcloudDBUser); err != nil {
+	if err := cfg.Set("NEXTCLOUD_DB_USERNAME", nextcloudDBUser); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_DB_USERNAME: %w", err)
 	}
 
-	nextcloudDBPass, err := c.ui.PromptPasswordConfirm("Nextcloud database password")
+	nextcloudDBPass, err := ui.PromptPasswordConfirm("Nextcloud database password")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_DB_PASSWORD", nextcloudDBPass); err != nil {
+	if err := cfg.Set("NEXTCLOUD_DB_PASSWORD", nextcloudDBPass); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_DB_PASSWORD: %w", err)
 	}
 
-	nextcloudDBName, err := c.ui.PromptInput("Nextcloud database name", "nextcloud")
+	nextcloudDBName, err := ui.PromptInput("Nextcloud database name", "nextcloud")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_DB_DATABASE", nextcloudDBName); err != nil {
+	if err := cfg.Set("NEXTCLOUD_DB_DATABASE", nextcloudDBName); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_DB_DATABASE: %w", err)
 	}
 
-	nextcloudDomain, err := c.ui.PromptInput("Nextcloud trusted domain (e.g., cloud.example.com)", "localhost")
+	nextcloudDomain, err := ui.PromptInput("Nextcloud trusted domain (e.g., cloud.example.com)", "localhost")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_TRUSTED_DOMAINS", nextcloudDomain); err != nil {
+	if err := cfg.Set("NEXTCLOUD_TRUSTED_DOMAINS", nextcloudDomain); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_TRUSTED_DOMAINS: %w", err)
 	}
-	if err := c.config.Set("NEXTCLOUD_OVERWRITE_HOST", nextcloudDomain); err != nil {
+	if err := cfg.Set("NEXTCLOUD_OVERWRITE_HOST", nextcloudDomain); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_OVERWRITE_HOST: %w", err)
 	}
 
 	// PHP limits
-	phpMemory, err := c.ui.PromptInput("Nextcloud PHP memory limit", "1024M")
+	phpMemory, err := ui.PromptInput("Nextcloud PHP memory limit", "1024M")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_PHP_MEMORY_LIMIT", phpMemory); err != nil {
+	if err := cfg.Set("NEXTCLOUD_PHP_MEMORY_LIMIT", phpMemory); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_PHP_MEMORY_LIMIT: %w", err)
 	}
 
-	phpUpload, err := c.ui.PromptInput("Nextcloud PHP upload limit", "1024M")
+	phpUpload, err := ui.PromptInput("Nextcloud PHP upload limit", "1024M")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("NEXTCLOUD_PHP_UPLOAD_LIMIT", phpUpload); err != nil {
+	if err := cfg.Set("NEXTCLOUD_PHP_UPLOAD_LIMIT", phpUpload); err != nil {
 		return fmt.Errorf("failed to save NEXTCLOUD_PHP_UPLOAD_LIMIT: %w", err)
 	}
 
 	// Collabora configuration (truly optional)
-	c.ui.Print("")
-	setupCollabora, err := c.ui.PromptYesNo("Configure Collabora Online (office document editing)?", false)
+	ui.Print("")
+	setupCollabora, err := ui.PromptYesNo("Configure Collabora Online (office document editing)?", false)
 	if err != nil {
 		return err
 	}
 
 	if setupCollabora {
-		c.ui.Info("Collabora Setup:")
-		c.ui.Print("")
+		ui.Info("Collabora Setup:")
+		ui.Print("")
 
-		collaboraUser, err := c.ui.PromptInput("Collabora username", "admin")
+		collaboraUser, err := ui.PromptInput("Collabora username", "admin")
 		if err != nil {
 			return err
 		}
-		if err := c.config.Set("COLLABORA_USERNAME", collaboraUser); err != nil {
+		if err := cfg.Set("COLLABORA_USERNAME", collaboraUser); err != nil {
 			return fmt.Errorf("failed to save COLLABORA_USERNAME: %w", err)
 		}
 
-		collaboraPass, err := c.ui.PromptPassword("Collabora admin password")
+		collaboraPass, err := ui.PromptPassword("Collabora admin password")
 		if err != nil {
 			return err
 		}
-		if err := c.config.Set("COLLABORA_PASSWORD", collaboraPass); err != nil {
+		if err := cfg.Set("COLLABORA_PASSWORD", collaboraPass); err != nil {
 			return fmt.Errorf("failed to save COLLABORA_PASSWORD: %w", err)
 		}
 	} else {
 		// Set empty values for optional Collabora fields
-		if err := c.config.Set("COLLABORA_USERNAME", "admin"); err != nil {
+		if err := cfg.Set("COLLABORA_USERNAME", "admin"); err != nil {
 			return fmt.Errorf("failed to save COLLABORA_USERNAME: %w", err)
 		}
-		if err := c.config.Set("COLLABORA_PASSWORD", ""); err != nil {
+		if err := cfg.Set("COLLABORA_PASSWORD", ""); err != nil {
 			return fmt.Errorf("failed to save COLLABORA_PASSWORD: %w", err)
 		}
 	}
 
 	// Escape domain for Collabora (dots need to be escaped)
 	collaboraDomain := strings.ReplaceAll(nextcloudDomain, ".", "\\.")
-	if err := c.config.Set("COLLABORA_DOMAIN", collaboraDomain); err != nil {
+	if err := cfg.Set("COLLABORA_DOMAIN", collaboraDomain); err != nil {
 		return fmt.Errorf("failed to save COLLABORA_DOMAIN: %w", err)
 	}
 
 	// Immich configuration
-	c.ui.Print("")
-	c.ui.Info("Immich Setup:")
-	c.ui.Print("")
+	ui.Print("")
+	ui.Info("Immich Setup:")
+	ui.Print("")
 
-	immichDBUser, err := c.ui.PromptInput("Immich database username", "postgres")
+	immichDBUser, err := ui.PromptInput("Immich database username", "postgres")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("IMMICH_DB_USERNAME", immichDBUser); err != nil {
+	if err := cfg.Set("IMMICH_DB_USERNAME", immichDBUser); err != nil {
 		return fmt.Errorf("failed to save IMMICH_DB_USERNAME: %w", err)
 	}
 
-	immichDBPass, err := c.ui.PromptPasswordConfirm("Immich database password")
+	immichDBPass, err := ui.PromptPasswordConfirm("Immich database password")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("IMMICH_DB_PASSWORD", immichDBPass); err != nil {
+	if err := cfg.Set("IMMICH_DB_PASSWORD", immichDBPass); err != nil {
 		return fmt.Errorf("failed to save IMMICH_DB_PASSWORD: %w", err)
 	}
 
-	immichDBName, err := c.ui.PromptInput("Immich database name", "immich")
+	immichDBName, err := ui.PromptInput("Immich database name", "immich")
 	if err != nil {
 		return err
 	}
-	if err := c.config.Set("IMMICH_DB_DATABASE", immichDBName); err != nil {
+	if err := cfg.Set("IMMICH_DB_DATABASE", immichDBName); err != nil {
 		return fmt.Errorf("failed to save IMMICH_DB_DATABASE: %w", err)
 	}
 
 	return nil
 }
 
-// CreateEnvFiles creates .env files for selected stacks
-func (c *ContainerSetup) CreateEnvFiles(selectedStacks []string) error {
-	c.ui.Step("Creating Environment Files")
+// createEnvFiles creates .env files for selected stacks
+func createEnvFiles(cfg *config.Config, ui *ui.UI, selectedStacks []string) error {
+	ui.Step("Creating Environment Files")
 
-	setupUser := c.config.GetOrDefault("HOMELAB_USER", "")
+	setupUser := cfg.GetOrDefault("HOMELAB_USER", "")
 
 	for _, serviceName := range selectedStacks {
-		envPath := filepath.Join(c.serviceDirectory(serviceName), ".env")
-		c.ui.Infof("Creating environment file: %s", envPath)
+		envPath := filepath.Join(serviceDirectory(cfg, serviceName), ".env")
+		ui.Infof("Creating environment file: %s", envPath)
 
-		content := c.generateEnvContent(serviceName)
+		content := generateEnvContent(cfg, serviceName)
 
 		// Write file
 		if err := system.WriteFile(envPath, []byte(content), 0600); err != nil {
@@ -582,18 +570,18 @@ func (c *ContainerSetup) CreateEnvFiles(selectedStacks []string) error {
 			return fmt.Errorf("failed to set ownership on %s: %w", envPath, err)
 		}
 
-		c.ui.Successf("Created: %s", envPath)
+		ui.Successf("Created: %s", envPath)
 	}
 
 	return nil
 }
 
 // generateEnvContent generates .env file content for a service
-func (c *ContainerSetup) generateEnvContent(serviceName string) string {
-	puid := c.config.GetOrDefault("ENV_PUID", "1000")
-	pgid := c.config.GetOrDefault("ENV_PGID", "1000")
-	tz := c.config.GetOrDefault("ENV_TZ", "America/Chicago")
-	appdataPath := c.config.GetOrDefault("ENV_APPDATA_PATH", "/var/lib/containers/appdata")
+func generateEnvContent(cfg *config.Config, serviceName string) string {
+	puid := cfg.GetOrDefault("ENV_PUID", "1000")
+	pgid := cfg.GetOrDefault("ENV_PGID", "1000")
+	tz := cfg.GetOrDefault("ENV_TZ", "America/Chicago")
+	appdataPath := cfg.GetOrDefault("ENV_APPDATA_PATH", "/var/lib/containers/appdata")
 
 	// Use cases.Title instead of deprecated strings.Title
 	caser := cases.Title(language.English)
@@ -628,8 +616,8 @@ TRANSCODE_DEVICE=/dev/dri
 # Note: Media paths are configured in the compose file
 # Ensure NFS mounts are set up at /mnt/nas-media before starting services
 
-`, c.config.GetOrDefault("PLEX_CLAIM_TOKEN", ""),
-			c.config.GetOrDefault("JELLYFIN_PUBLIC_URL", ""))
+`, cfg.GetOrDefault("PLEX_CLAIM_TOKEN", ""),
+			cfg.GetOrDefault("JELLYFIN_PUBLIC_URL", ""))
 
 	case "web":
 		content += fmt.Sprintf(`# Overseerr Configuration (optional - configure in UI)
@@ -644,7 +632,7 @@ HOMEPAGE_PORT=3000
 # Note: These services are typically accessed via reverse proxy
 # Configure your reverse proxy to route to these ports via WireGuard tunnel
 
-`, c.config.GetOrDefault("OVERSEERR_API_KEY", ""))
+`, cfg.GetOrDefault("OVERSEERR_API_KEY", ""))
 
 	case "cloud":
 		content += fmt.Sprintf(`# Nextcloud Admin Credentials (for initial setup)
@@ -674,93 +662,93 @@ IMMICH_DB_USERNAME=%s
 IMMICH_DB_PASSWORD=%s
 IMMICH_DB_DATABASE=%s
 
-`, c.config.GetOrDefault("NEXTCLOUD_ADMIN_USER", "admin"),
-			c.config.GetOrDefault("NEXTCLOUD_ADMIN_PASSWORD", ""),
-			c.config.GetOrDefault("NEXTCLOUD_DB_USERNAME", "nc_user"),
-			c.config.GetOrDefault("NEXTCLOUD_DB_PASSWORD", ""),
-			c.config.GetOrDefault("NEXTCLOUD_DB_DATABASE", "nextcloud"),
-			c.config.GetOrDefault("NEXTCLOUD_TRUSTED_DOMAINS", "localhost"),
-			c.config.GetOrDefault("NEXTCLOUD_OVERWRITE_HOST", "localhost"),
-			c.config.GetOrDefault("NEXTCLOUD_PHP_MEMORY_LIMIT", "1024M"),
-			c.config.GetOrDefault("NEXTCLOUD_PHP_UPLOAD_LIMIT", "1024M"),
-			c.config.GetOrDefault("COLLABORA_USERNAME", "admin"),
-			c.config.GetOrDefault("COLLABORA_PASSWORD", ""),
-			c.config.GetOrDefault("COLLABORA_DOMAIN", "localhost"),
-			c.config.GetOrDefault("IMMICH_DB_USERNAME", "postgres"),
-			c.config.GetOrDefault("IMMICH_DB_PASSWORD", ""),
-			c.config.GetOrDefault("IMMICH_DB_DATABASE", "immich"))
+`, cfg.GetOrDefault("NEXTCLOUD_ADMIN_USER", "admin"),
+			cfg.GetOrDefault("NEXTCLOUD_ADMIN_PASSWORD", ""),
+			cfg.GetOrDefault("NEXTCLOUD_DB_USERNAME", "nc_user"),
+			cfg.GetOrDefault("NEXTCLOUD_DB_PASSWORD", ""),
+			cfg.GetOrDefault("NEXTCLOUD_DB_DATABASE", "nextcloud"),
+			cfg.GetOrDefault("NEXTCLOUD_TRUSTED_DOMAINS", "localhost"),
+			cfg.GetOrDefault("NEXTCLOUD_OVERWRITE_HOST", "localhost"),
+			cfg.GetOrDefault("NEXTCLOUD_PHP_MEMORY_LIMIT", "1024M"),
+			cfg.GetOrDefault("NEXTCLOUD_PHP_UPLOAD_LIMIT", "1024M"),
+			cfg.GetOrDefault("COLLABORA_USERNAME", "admin"),
+			cfg.GetOrDefault("COLLABORA_PASSWORD", ""),
+			cfg.GetOrDefault("COLLABORA_DOMAIN", "localhost"),
+			cfg.GetOrDefault("IMMICH_DB_USERNAME", "postgres"),
+			cfg.GetOrDefault("IMMICH_DB_PASSWORD", ""),
+			cfg.GetOrDefault("IMMICH_DB_DATABASE", "immich"))
 	}
 
 	return content
 }
 
-// Run executes the container setup step
-func (c *ContainerSetup) Run() error {
+// RunContainerSetup executes the container setup step
+func RunContainerSetup(cfg *config.Config, ui *ui.UI) error {
 	// Check if already completed
-	if c.config.IsComplete("container-setup-complete") {
-		c.ui.Info("Container setup already completed (marker found)")
-		c.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/container-setup-complete")
+	if cfg.IsComplete(containerSetupCompletionMarker) {
+		ui.Info("Container setup already completed (marker found)")
+		ui.Info("To re-run, remove marker: ~/.local/homelab-setup/" + containerSetupCompletionMarker)
 		return nil
 	}
 
-	c.ui.Header("Container Stack Setup")
-	c.ui.Info("Configuring container services for homelab...")
-	c.ui.Print("")
+	ui.Header("Container Stack Setup")
+	ui.Info("Configuring container services for homelab...")
+	ui.Print("")
 
 	// Check homelab user
-	homelabUser := c.config.GetOrDefault("HOMELAB_USER", "")
+	homelabUser := cfg.GetOrDefault("HOMELAB_USER", "")
 	if homelabUser == "" {
 		return fmt.Errorf("homelab user not configured (run user setup first)")
 	}
 
 	// Find template directory
-	templateDir, err := c.FindTemplateDirectory()
+	templateDir, err := findTemplateDirectory(cfg, ui)
 	if err != nil {
 		return fmt.Errorf("failed to find templates: %w", err)
 	}
 
 	// Discover available stacks
-	stacks, err := c.DiscoverStacks(templateDir)
+	stacks, err := discoverStacks(cfg, ui, templateDir)
 	if err != nil {
 		return fmt.Errorf("failed to discover stacks: %w", err)
 	}
 
 	// Select stacks to setup
-	selectedStacks, err := c.SelectStacks(stacks)
+	selectedStacks, err := selectStacks(cfg, ui, stacks)
 	if err != nil {
 		return fmt.Errorf("failed to select stacks: %w", err)
 	}
 
 	// Copy templates
-	if err := c.CopyTemplates(templateDir, stacks, selectedStacks); err != nil {
+	if err := copyTemplates(cfg, ui, templateDir, stacks, selectedStacks); err != nil {
 		return fmt.Errorf("failed to copy templates: %w", err)
 	}
 
 	// Create base environment configuration
-	if err := c.CreateBaseEnvConfig(); err != nil {
+	if err := createBaseEnvConfig(cfg, ui); err != nil {
 		return fmt.Errorf("failed to create base config: %w", err)
 	}
 
 	// Configure each selected stack
 	for _, serviceName := range selectedStacks {
-		if err := c.ConfigureStackEnv(serviceName); err != nil {
-			c.ui.Warningf("Failed to configure %s: %v", serviceName, err)
+		if err := configureStackEnv(cfg, ui, serviceName); err != nil {
+			ui.Warningf("Failed to configure %s: %v", serviceName, err)
 			// Continue with other stacks
 		}
 	}
 
 	// Create .env files
-	if err := c.CreateEnvFiles(selectedStacks); err != nil {
+	if err := createEnvFiles(cfg, ui, selectedStacks); err != nil {
 		return fmt.Errorf("failed to create .env files: %w", err)
 	}
 
-	c.ui.Print("")
-	c.ui.Separator()
-	c.ui.Success("✓ Container stack setup completed")
-	c.ui.Infof("Configured %d stack(s): %s", len(selectedStacks), strings.Join(selectedStacks, ", "))
+	ui.Print("")
+	ui.Separator()
+	ui.Success("✓ Container stack setup completed")
+	ui.Infof("Configured %d stack(s): %s", len(selectedStacks), strings.Join(selectedStacks, ", "))
 
 	// Create completion marker
-	if err := c.config.MarkComplete("container-setup-complete"); err != nil {
+	if err := cfg.MarkComplete(containerSetupCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

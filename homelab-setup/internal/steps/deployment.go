@@ -14,16 +14,12 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
-// Deployment handles service deployment
-type Deployment struct {
-	config *config.Config
-	ui     *ui.UI
-}
+const deploymentCompletionMarker = "service-deployment-complete"
 
 // getServiceBaseDir resolves the base directory for service deployments.
 // Uses CONTAINERS_BASE which should point to /srv/containers
-func (d *Deployment) getServiceBaseDir() string {
-	return d.config.GetOrDefault("CONTAINERS_BASE", "/srv/containers")
+func getServiceBaseDir(cfg *config.Config) string {
+	return cfg.GetOrDefault("CONTAINERS_BASE", "/srv/containers")
 }
 
 // ServiceInfo holds information about a service
@@ -34,17 +30,22 @@ type ServiceInfo struct {
 	UnitName    string
 }
 
-// NewDeployment creates a new Deployment instance
-func NewDeployment(cfg *config.Config, ui *ui.UI) *Deployment {
-	return &Deployment{
-		config: cfg,
-		ui:     ui,
+// getServiceInfo returns information about a service
+func getServiceInfo(cfg *config.Config, serviceName string) *ServiceInfo {
+	// Use cases.Title instead of deprecated strings.Title
+	caser := cases.Title(language.English)
+
+	return &ServiceInfo{
+		Name:        serviceName,
+		DisplayName: caser.String(serviceName),
+		Directory:   filepath.Join(getServiceBaseDir(cfg), serviceName),
+		UnitName:    fmt.Sprintf("podman-compose-%s.service", serviceName),
 	}
 }
 
-// GetSelectedServices returns the list of selected services from config
-func (d *Deployment) GetSelectedServices() ([]string, error) {
-	selectedStr := d.config.GetOrDefault("SELECTED_SERVICES", "")
+// getSelectedServices returns the list of selected services from config
+func getSelectedServices(cfg *config.Config) ([]string, error) {
+	selectedStr := cfg.GetOrDefault("SELECTED_SERVICES", "")
 	if selectedStr == "" {
 		return nil, fmt.Errorf("no services selected (run container setup first)")
 	}
@@ -53,22 +54,9 @@ func (d *Deployment) GetSelectedServices() ([]string, error) {
 	return services, nil
 }
 
-// GetServiceInfo returns information about a service
-func (d *Deployment) GetServiceInfo(serviceName string) *ServiceInfo {
-	// Use cases.Title instead of deprecated strings.Title
-	caser := cases.Title(language.English)
-
-	return &ServiceInfo{
-		Name:        serviceName,
-		DisplayName: caser.String(serviceName),
-		Directory:   filepath.Join(d.getServiceBaseDir(), serviceName),
-		UnitName:    fmt.Sprintf("podman-compose-%s.service", serviceName),
-	}
-}
-
-// CheckExistingService checks if a systemd service exists
-func (d *Deployment) CheckExistingService(serviceInfo *ServiceInfo) (bool, error) {
-	d.ui.Infof("Checking for service: %s", serviceInfo.UnitName)
+// checkExistingService checks if a systemd service exists
+func checkExistingService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) (bool, error) {
+	ui.Infof("Checking for service: %s", serviceInfo.UnitName)
 
 	exists, err := system.ServiceExists(serviceInfo.UnitName)
 	if err != nil {
@@ -76,17 +64,17 @@ func (d *Deployment) CheckExistingService(serviceInfo *ServiceInfo) (bool, error
 	}
 
 	if exists {
-		d.ui.Successf("Found pre-configured service: %s", serviceInfo.UnitName)
+		ui.Successf("Found pre-configured service: %s", serviceInfo.UnitName)
 		return true, nil
 	}
 
-	d.ui.Info("Service not found (will be created)")
+	ui.Info("Service not found (will be created)")
 	return false, nil
 }
 
 // getRuntimeFromConfig is a helper to get container runtime from config
-func (d *Deployment) getRuntimeFromConfig() (system.ContainerRuntime, error) {
-	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
+func getRuntimeFromConfig(cfg *config.Config) (system.ContainerRuntime, error) {
+	runtimeStr := cfg.GetOrDefault("CONTAINER_RUNTIME", "podman")
 	switch runtimeStr {
 	case "podman":
 		return system.RuntimePodman, nil
@@ -97,12 +85,12 @@ func (d *Deployment) getRuntimeFromConfig() (system.ContainerRuntime, error) {
 	}
 }
 
-// CreateComposeService creates a systemd service for docker-compose/podman-compose
-func (d *Deployment) CreateComposeService(serviceInfo *ServiceInfo) error {
-	d.ui.Infof("Creating systemd service: %s", serviceInfo.UnitName)
+// createComposeService creates a systemd service for docker-compose/podman-compose
+func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
+	ui.Infof("Creating systemd service: %s", serviceInfo.UnitName)
 
 	// Get container runtime using helper
-	runtime, err := d.getRuntimeFromConfig()
+	runtime, err := getRuntimeFromConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -112,7 +100,7 @@ func (d *Deployment) CreateComposeService(serviceInfo *ServiceInfo) error {
 		return fmt.Errorf("failed to get compose command: %w", err)
 	}
 
-	d.ui.Infof("Using compose command: %s", composeCmd)
+	ui.Infof("Using compose command: %s", composeCmd)
 
 	// Create service unit content
 	unitContent := fmt.Sprintf(`[Unit]
@@ -142,21 +130,21 @@ WantedBy=multi-user.target
 		return fmt.Errorf("failed to write service file: %w", err)
 	}
 
-	d.ui.Successf("Created service unit: %s", unitPath)
+	ui.Successf("Created service unit: %s", unitPath)
 
 	// Reload systemd daemon
-	d.ui.Info("Reloading systemd daemon...")
+	ui.Info("Reloading systemd daemon...")
 	if err := system.SystemdDaemonReload(); err != nil {
-		d.ui.Warning(fmt.Sprintf("Failed to reload daemon: %v", err))
+		ui.Warning(fmt.Sprintf("Failed to reload daemon: %v", err))
 		// Non-critical, continue
 	}
 
 	return nil
 }
 
-// PullImages pulls container images for a service
-func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
-	d.ui.Step(fmt.Sprintf("Pulling Container Images for %s", serviceInfo.DisplayName))
+// pullImages pulls container images for a service
+func pullImages(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
+	ui.Step(fmt.Sprintf("Pulling Container Images for %s", serviceInfo.DisplayName))
 
 	// Check if compose file exists
 	composeFile := filepath.Join(serviceInfo.Directory, "compose.yml")
@@ -169,10 +157,10 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 		return fmt.Errorf("no compose file found in %s", serviceInfo.Directory)
 	}
 
-	d.ui.Info("This may take several minutes depending on your internet connection...")
+	ui.Info("This may take several minutes depending on your internet connection...")
 
 	// Get container runtime using helper
-	runtime, err := d.getRuntimeFromConfig()
+	runtime, err := getRuntimeFromConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -192,12 +180,12 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 	}
 	defer func() {
 		if err := os.Chdir(originalDir); err != nil {
-			d.ui.Warning(fmt.Sprintf("Failed to restore working directory: %v", err))
+			ui.Warning(fmt.Sprintf("Failed to restore working directory: %v", err))
 		}
 	}()
 
 	// Execute compose pull
-	d.ui.Infof("Running: %s pull", composeCmd)
+	ui.Infof("Running: %s pull", composeCmd)
 
 	// For compatibility, we need to handle both "podman-compose" and "podman compose" formats
 	cmdParts := strings.Fields(composeCmd)
@@ -207,58 +195,58 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 	cmdParts = append(cmdParts, "pull")
 
 	if err := system.RunSystemCommand(cmdParts[0], cmdParts[1:]...); err != nil {
-		d.ui.Error(fmt.Sprintf("Failed to pull images: %v", err))
-		d.ui.Info("You may need to pull images manually later")
+		ui.Error(fmt.Sprintf("Failed to pull images: %v", err))
+		ui.Info("You may need to pull images manually later")
 		return nil // Non-critical error, continue
 	}
 
-	d.ui.Success("Images pulled successfully")
+	ui.Success("Images pulled successfully")
 	return nil
 }
 
-// EnableAndStartService enables and starts a systemd service
-func (d *Deployment) EnableAndStartService(serviceInfo *ServiceInfo) error {
-	d.ui.Step(fmt.Sprintf("Enabling and Starting %s Service", serviceInfo.DisplayName))
+// enableAndStartService enables and starts a systemd service
+func enableAndStartService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
+	ui.Step(fmt.Sprintf("Enabling and Starting %s Service", serviceInfo.DisplayName))
 
 	// Enable service
-	d.ui.Infof("Enabling service: %s", serviceInfo.UnitName)
+	ui.Infof("Enabling service: %s", serviceInfo.UnitName)
 	if err := system.EnableService(serviceInfo.UnitName); err != nil {
 		return fmt.Errorf("failed to enable service: %w", err)
 	}
-	d.ui.Success("Service enabled")
+	ui.Success("Service enabled")
 
 	// Start service
-	d.ui.Infof("Starting service: %s", serviceInfo.UnitName)
+	ui.Infof("Starting service: %s", serviceInfo.UnitName)
 	if err := system.StartService(serviceInfo.UnitName); err != nil {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
-	d.ui.Success("Service started")
+	ui.Success("Service started")
 
 	return nil
 }
 
-// VerifyContainers verifies that containers are running
-func (d *Deployment) VerifyContainers(serviceInfo *ServiceInfo) error {
-	d.ui.Step(fmt.Sprintf("Verifying %s Containers", serviceInfo.DisplayName))
+// verifyContainers verifies that containers are running
+func verifyContainers(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
+	ui.Step(fmt.Sprintf("Verifying %s Containers", serviceInfo.DisplayName))
 
 	// Get container runtime using helper
-	runtime, err := d.getRuntimeFromConfig()
+	runtime, err := getRuntimeFromConfig(cfg)
 	if err != nil {
 		return err
 	}
 
-	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
+	runtimeStr := cfg.GetOrDefault("CONTAINER_RUNTIME", "podman")
 
 	// List running containers
 	containers, err := system.ListRunningContainers(runtime)
 	if err != nil {
-		d.ui.Warning(fmt.Sprintf("Could not list containers: %v", err))
+		ui.Warning(fmt.Sprintf("Could not list containers: %v", err))
 		return nil // Non-critical
 	}
 
 	if len(containers) == 0 {
-		d.ui.Warning("No containers are running")
-		d.ui.Info("Check service status: systemctl status " + serviceInfo.UnitName)
+		ui.Warning("No containers are running")
+		ui.Info("Check service status: systemctl status " + serviceInfo.UnitName)
 		return nil
 	}
 
@@ -273,24 +261,24 @@ func (d *Deployment) VerifyContainers(serviceInfo *ServiceInfo) error {
 	}
 
 	if len(serviceContainers) > 0 {
-		d.ui.Successf("Found %d running container(s):", len(serviceContainers))
+		ui.Successf("Found %d running container(s):", len(serviceContainers))
 		for _, container := range serviceContainers {
-			d.ui.Printf("  - %s", container)
+			ui.Printf("  - %s", container)
 		}
 	} else {
-		d.ui.Warning("No containers found for this service")
-		d.ui.Info("They may still be starting up. Check with: " + runtimeStr + " ps")
+		ui.Warning("No containers found for this service")
+		ui.Info("They may still be starting up. Check with: " + runtimeStr + " ps")
 	}
 
 	return nil
 }
 
-// DisplayAccessInfo displays service access information
-func (d *Deployment) DisplayAccessInfo() {
-	d.ui.Print("")
-	d.ui.Info("Service Access Information:")
-	d.ui.Separator()
-	d.ui.Print("")
+// displayAccessInfo displays service access information
+func displayAccessInfo(cfg *config.Config, ui *ui.UI) {
+	ui.Print("")
+	ui.Info("Service Access Information:")
+	ui.Separator()
+	ui.Print("")
 
 	// Common service ports
 	servicePorts := map[string]map[string]string{
@@ -312,157 +300,155 @@ func (d *Deployment) DisplayAccessInfo() {
 		},
 	}
 
-	selectedServices, _ := d.GetSelectedServices()
+	selectedServices, _ := getSelectedServices(cfg)
 
 	// Use cases.Title instead of deprecated strings.Title
 	caser := cases.Title(language.English)
 
 	for _, service := range selectedServices {
 		if ports, ok := servicePorts[service]; ok {
-			d.ui.Infof("%s Stack:", caser.String(service))
+			ui.Infof("%s Stack:", caser.String(service))
 			for name, port := range ports {
-				d.ui.Printf("  - %s: http://localhost:%s", name, port)
+				ui.Printf("  - %s: http://localhost:%s", name, port)
 			}
-			d.ui.Print("")
+			ui.Print("")
 		}
 	}
 
-	d.ui.Info("Note: Services may take a few minutes to fully start")
-	d.ui.Info("Check container logs with: podman logs <container-name>")
-	d.ui.Info("Or use: podman ps to see running containers")
-	d.ui.Print("")
+	ui.Info("Note: Services may take a few minutes to fully start")
+	ui.Info("Check container logs with: podman logs <container-name>")
+	ui.Info("Or use: podman ps to see running containers")
+	ui.Print("")
 }
 
-// DisplayManagementInfo displays service management instructions
-func (d *Deployment) DisplayManagementInfo() {
-	d.ui.Print("")
-	d.ui.Info("Service Management:")
-	d.ui.Separator()
-	d.ui.Print("")
+// displayManagementInfo displays service management instructions
+func displayManagementInfo(cfg *config.Config, ui *ui.UI) {
+	ui.Print("")
+	ui.Info("Service Management:")
+	ui.Separator()
+	ui.Print("")
 
-	selectedServices, _ := d.GetSelectedServices()
+	selectedServices, _ := getSelectedServices(cfg)
 
-	d.ui.Info("Start services:")
+	ui.Info("Start services:")
 	for _, service := range selectedServices {
-		serviceInfo := d.GetServiceInfo(service)
-		d.ui.Printf("  sudo systemctl start %s", serviceInfo.UnitName)
+		serviceInfo := getServiceInfo(cfg, service)
+		ui.Printf("  sudo systemctl start %s", serviceInfo.UnitName)
 	}
-	d.ui.Print("")
+	ui.Print("")
 
-	d.ui.Info("Stop services:")
+	ui.Info("Stop services:")
 	for _, service := range selectedServices {
-		serviceInfo := d.GetServiceInfo(service)
-		d.ui.Printf("  sudo systemctl stop %s", serviceInfo.UnitName)
+		serviceInfo := getServiceInfo(cfg, service)
+		ui.Printf("  sudo systemctl stop %s", serviceInfo.UnitName)
 	}
-	d.ui.Print("")
+	ui.Print("")
 
-	d.ui.Info("Check service status:")
+	ui.Info("Check service status:")
 	for _, service := range selectedServices {
-		serviceInfo := d.GetServiceInfo(service)
-		d.ui.Printf("  sudo systemctl status %s", serviceInfo.UnitName)
+		serviceInfo := getServiceInfo(cfg, service)
+		ui.Printf("  sudo systemctl status %s", serviceInfo.UnitName)
 	}
-	d.ui.Print("")
+	ui.Print("")
 
-	d.ui.Info("View service logs:")
+	ui.Info("View service logs:")
 	for _, service := range selectedServices {
-		serviceInfo := d.GetServiceInfo(service)
-		d.ui.Printf("  sudo journalctl -u %s -f", serviceInfo.UnitName)
+		serviceInfo := getServiceInfo(cfg, service)
+		ui.Printf("  sudo journalctl -u %s -f", serviceInfo.UnitName)
 	}
-	d.ui.Print("")
+	ui.Print("")
 }
 
-// DeployService deploys a single service
-func (d *Deployment) DeployService(serviceName string) error {
-	serviceInfo := d.GetServiceInfo(serviceName)
+// deployService deploys a single service
+func deployService(cfg *config.Config, ui *ui.UI, serviceName string) error {
+	serviceInfo := getServiceInfo(cfg, serviceName)
 
-	d.ui.Header(fmt.Sprintf("Deploying %s Stack", serviceInfo.DisplayName))
+	ui.Header(fmt.Sprintf("Deploying %s Stack", serviceInfo.DisplayName))
 
 	// Check for existing service
-	exists, err := d.CheckExistingService(serviceInfo)
+	exists, err := checkExistingService(cfg, ui, serviceInfo)
 	if err != nil {
-		d.ui.Warning(fmt.Sprintf("Failed to check service: %v", err))
+		ui.Warning(fmt.Sprintf("Failed to check service: %v", err))
 	}
 
 	// Create service if it doesn't exist
 	if !exists {
-		if err := d.CreateComposeService(serviceInfo); err != nil {
+		if err := createComposeService(cfg, ui, serviceInfo); err != nil {
 			return fmt.Errorf("failed to create service: %w", err)
 		}
 	}
 
 	// Pull images
-	if err := d.PullImages(serviceInfo); err != nil {
-		d.ui.Warning(fmt.Sprintf("Image pull had issues: %v", err))
+	if err := pullImages(cfg, ui, serviceInfo); err != nil {
+		ui.Warning(fmt.Sprintf("Image pull had issues: %v", err))
 		// Continue anyway
 	}
 
 	// Enable and start service
-	if err := d.EnableAndStartService(serviceInfo); err != nil {
+	if err := enableAndStartService(cfg, ui, serviceInfo); err != nil {
 		return fmt.Errorf("failed to enable/start service: %w", err)
 	}
 
 	// Verify containers
-	if err := d.VerifyContainers(serviceInfo); err != nil {
-		d.ui.Warning(fmt.Sprintf("Container verification had issues: %v", err))
+	if err := verifyContainers(cfg, ui, serviceInfo); err != nil {
+		ui.Warning(fmt.Sprintf("Container verification had issues: %v", err))
 		// Continue anyway
 	}
 
-	d.ui.Print("")
-	d.ui.Successf("✓ %s stack deployed successfully", serviceInfo.DisplayName)
+	ui.Print("")
+	ui.Successf("✓ %s stack deployed successfully", serviceInfo.DisplayName)
 
 	return nil
 }
 
-const deploymentCompletionMarker = "service-deployment-complete"
-
-// Run executes the deployment step
-func (d *Deployment) Run() error {
+// RunDeployment executes the deployment step
+func RunDeployment(cfg *config.Config, ui *ui.UI) error {
 	// Check if already completed (and migrate legacy markers)
-	completed, err := ensureCanonicalMarker(d.config, deploymentCompletionMarker, "deployment-complete")
+	completed, err := ensureCanonicalMarker(cfg, deploymentCompletionMarker, "deployment-complete")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
 	if completed {
-		d.ui.Info("Service deployment already completed (marker found)")
-		d.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/" + deploymentCompletionMarker)
+		ui.Info("Service deployment already completed (marker found)")
+		ui.Info("To re-run, remove marker: ~/.local/homelab-setup/" + deploymentCompletionMarker)
 		return nil
 	}
 
-	d.ui.Header("Service Deployment")
-	d.ui.Info("Deploying container services...")
-	d.ui.Print("")
+	ui.Header("Service Deployment")
+	ui.Info("Deploying container services...")
+	ui.Print("")
 
 	// Get selected services
-	selectedServices, err := d.GetSelectedServices()
+	selectedServices, err := getSelectedServices(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to get selected services: %w", err)
 	}
 
-	d.ui.Infof("Deploying %d service(s): %s", len(selectedServices), strings.Join(selectedServices, ", "))
-	d.ui.Print("")
+	ui.Infof("Deploying %d service(s): %s", len(selectedServices), strings.Join(selectedServices, ", "))
+	ui.Print("")
 
 	// Deploy each service
 	for _, serviceName := range selectedServices {
-		if err := d.DeployService(serviceName); err != nil {
-			d.ui.Error(fmt.Sprintf("Failed to deploy %s: %v", serviceName, err))
-			d.ui.Info("Continuing with remaining services...")
+		if err := deployService(cfg, ui, serviceName); err != nil {
+			ui.Error(fmt.Sprintf("Failed to deploy %s: %v", serviceName, err))
+			ui.Info("Continuing with remaining services...")
 			// Continue with other services
 		}
 	}
 
 	// Display access information
-	d.DisplayAccessInfo()
+	displayAccessInfo(cfg, ui)
 
 	// Display management information
-	d.DisplayManagementInfo()
+	displayManagementInfo(cfg, ui)
 
-	d.ui.Print("")
-	d.ui.Separator()
-	d.ui.Success("✓ Service deployment completed")
-	d.ui.Infof("Deployed %d stack(s)", len(selectedServices))
+	ui.Print("")
+	ui.Separator()
+	ui.Success("✓ Service deployment completed")
+	ui.Infof("Deployed %d stack(s)", len(selectedServices))
 
 	// Create completion marker
-	if err := d.config.MarkComplete(deploymentCompletionMarker); err != nil {
+	if err := cfg.MarkComplete(deploymentCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

@@ -11,7 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
+	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
 // WireGuardPeerWorkflowOptions allows the CLI or tests to pre-seed inputs.
@@ -250,26 +252,29 @@ func safePeerFilename(name string) string {
 	return result
 }
 
-func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) error {
+func RunWireGuardPeerWorkflow(cfg *config.Config, ui *ui.UI, opts *WireGuardPeerWorkflowOptions) error {
+	// Create default keygen
+	keygen := CommandKeyGenerator{}
+
 	if opts == nil {
 		opts = &WireGuardPeerWorkflowOptions{}
 	}
 	interfaceName := strings.TrimSpace(opts.InterfaceName)
 	if interfaceName == "" {
-		interfaceName = w.config.GetOrDefault("WIREGUARD_INTERFACE", "wg0")
+		interfaceName = cfg.GetOrDefault("WIREGUARD_INTERFACE", "wg0")
 	}
 	if interfaceName == "" {
 		if opts.NonInteractive {
 			return fmt.Errorf("interface name is required in non-interactive mode")
 		}
-		input, err := w.ui.PromptInput("WireGuard interface", "wg0")
+		input, err := ui.PromptInput("WireGuard interface", "wg0")
 		if err != nil {
 			return err
 		}
 		interfaceName = input
 	}
 
-	configPath := filepath.Join(w.configDir(), fmt.Sprintf("%s.conf", interfaceName))
+	configPath := filepath.Join(configDir(cfg), fmt.Sprintf("%s.conf", interfaceName))
 	exists, err := system.FileExists(configPath)
 	if err != nil {
 		return err
@@ -305,7 +310,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 		if opts.NonInteractive {
 			peerName = defaultName
 		} else {
-			peerName, err = w.ui.PromptInput("Peer name", defaultName)
+			peerName, err = ui.PromptInput("Peer name", defaultName)
 			if err != nil {
 				return err
 			}
@@ -315,36 +320,36 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 
 	endpoint := strings.TrimSpace(opts.Endpoint)
 	if endpoint == "" {
-		endpoint = w.config.GetOrDefault("WIREGUARD_ENDPOINT", "")
+		endpoint = cfg.GetOrDefault("WIREGUARD_ENDPOINT", "")
 	}
 	if endpoint == "" {
 		if opts.NonInteractive {
 			return fmt.Errorf("endpoint is required in non-interactive mode")
 		}
-		endpoint, err = w.ui.PromptInput("Server endpoint (host:port)", "")
+		endpoint, err = ui.PromptInput("Server endpoint (host:port)", "")
 		if err != nil {
 			return err
 		}
 	}
 	if endpoint != "" {
-		if err := w.config.Set("WIREGUARD_ENDPOINT", endpoint); err != nil {
-			w.ui.Warningf("failed to persist endpoint: %v", err)
+		if err := cfg.Set("WIREGUARD_ENDPOINT", endpoint); err != nil {
+			ui.Warningf("failed to persist endpoint: %v", err)
 		}
 	}
 
 	dns := strings.TrimSpace(opts.DNS)
 	if dns == "" {
-		dns = w.config.GetOrDefault("WIREGUARD_PEER_DNS", "")
+		dns = cfg.GetOrDefault("WIREGUARD_PEER_DNS", "")
 	}
 	if dns == "" && !opts.NonInteractive {
-		dns, err = w.ui.PromptInput("Client DNS server (optional)", "")
+		dns, err = ui.PromptInput("Client DNS server (optional)", "")
 		if err != nil {
 			return err
 		}
 	}
 	if dns != "" {
-		if err := w.config.Set("WIREGUARD_PEER_DNS", dns); err != nil {
-			w.ui.Warningf("failed to persist DNS: %v", err)
+		if err := cfg.Set("WIREGUARD_PEER_DNS", dns); err != nil {
+			ui.Warningf("failed to persist DNS: %v", err)
 		}
 	}
 
@@ -360,7 +365,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 		if opts.NonInteractive {
 			routeAll = true
 		} else {
-			routeAll, err = w.ui.PromptYesNo("Route all client traffic through the VPN?", true)
+			routeAll, err = ui.PromptYesNo("Route all client traffic through the VPN?", true)
 			if err != nil {
 				return err
 			}
@@ -385,28 +390,28 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 		}
 	}
 
-	serverPublicKey := strings.TrimSpace(w.config.GetOrDefault("WIREGUARD_PUBLIC_KEY", ""))
+	serverPublicKey := strings.TrimSpace(cfg.GetOrDefault("WIREGUARD_PUBLIC_KEY", ""))
 	if serverPublicKey == "" {
 		if privateKey, ok := parsed.Interface["PrivateKey"]; ok && privateKey != "" {
-			serverPublicKey, err = w.keygen.DerivePublicKey(privateKey)
+			serverPublicKey, err = keygen.DerivePublicKey(privateKey)
 			if err != nil {
 				return fmt.Errorf("failed to derive server public key: %w", err)
 			}
-			if err := w.config.Set("WIREGUARD_PUBLIC_KEY", serverPublicKey); err != nil {
-				w.ui.Warningf("failed to persist server public key: %v", err)
+			if err := cfg.Set("WIREGUARD_PUBLIC_KEY", serverPublicKey); err != nil {
+				ui.Warningf("failed to persist server public key: %v", err)
 			}
 		} else {
 			if opts.NonInteractive {
 				return fmt.Errorf("server public key missing from configuration")
 			}
-			serverPublicKey, err = w.ui.PromptInput("Server public key", "")
+			serverPublicKey, err = ui.PromptInput("Server public key", "")
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	clientPrivate, clientPublic, err := w.keygen.GenerateKeyPair()
+	clientPrivate, clientPublic, err := keygen.GenerateKeyPair()
 	if err != nil {
 		return err
 	}
@@ -418,7 +423,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 	} else if opts.NonInteractive {
 		usePSK = true
 	} else {
-		usePSK, err = w.ui.PromptYesNo("Generate a preshared key for this peer?", true)
+		usePSK, err = ui.PromptYesNo("Generate a preshared key for this peer?", true)
 		if err != nil {
 			return err
 		}
@@ -430,7 +435,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 	}
 
 	if usePSK && presharedKey == "" {
-		presharedKey, err = w.keygen.GeneratePresharedKey()
+		presharedKey, err = keygen.GeneratePresharedKey()
 		if err != nil {
 			return err
 		}
@@ -443,9 +448,9 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 	}
 	exportPath, err := writeClientConfigExport(peerName, exportDir, clientConfig)
 	if err != nil {
-		w.ui.Warningf("Failed to export client config: %v", err)
-		w.ui.Info("Client configuration (not exported):")
-		w.ui.Print(clientConfig)
+		ui.Warningf("Failed to export client config: %v", err)
+		ui.Info("Client configuration (not exported):")
+		ui.Print(clientConfig)
 		return fmt.Errorf("failed to export client config: %w", err)
 	}
 
@@ -461,28 +466,28 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 		return fmt.Errorf("failed to update %s: %w", configPath, err)
 	}
 
-	w.ui.Successf("Peer %s added. Client config: %s", peerName, exportPath)
-	w.ui.Print("")
-	w.ui.Info("Client configuration:")
-	w.ui.Print(clientConfig)
+	ui.Successf("Peer %s added. Client config: %s", peerName, exportPath)
+	ui.Print("")
+	ui.Info("Client configuration:")
+	ui.Print(clientConfig)
 
 	if !opts.SkipQRCode {
 		if qrErr != nil {
-			w.ui.Warningf("Failed to render QR code: %v", qrErr)
+			ui.Warningf("Failed to render QR code: %v", qrErr)
 		} else {
-			w.ui.Info("Scan this QR code from the WireGuard mobile app:")
-			w.ui.Print(qrOutput)
+			ui.Info("Scan this QR code from the WireGuard mobile app:")
+			ui.Print(qrOutput)
 		}
 	}
 
 	if !opts.SkipServiceRestart {
-		restart, err := w.ui.PromptYesNo(fmt.Sprintf("Restart wg-quick@%s now?", interfaceName), true)
+		restart, err := ui.PromptYesNo(fmt.Sprintf("Restart wg-quick@%s now?", interfaceName), true)
 		if err == nil && restart {
 			serviceName := fmt.Sprintf("wg-quick@%s.service", interfaceName)
 			if err := system.RestartService(serviceName); err != nil {
-				w.ui.Warningf("Failed to restart %s: %v", serviceName, err)
+				ui.Warningf("Failed to restart %s: %v", serviceName, err)
 			} else {
-				w.ui.Successf("Service %s restarted", serviceName)
+				ui.Successf("Service %s restarted", serviceName)
 			}
 		}
 	}
