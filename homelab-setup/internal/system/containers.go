@@ -15,17 +15,9 @@ const (
 	RuntimeNone   ContainerRuntime = "none"
 )
 
-// ContainerManager handles container runtime operations
-type ContainerManager struct{}
-
-// NewContainerManager creates a new ContainerManager instance
-func NewContainerManager() *ContainerManager {
-	return &ContainerManager{}
-}
-
 // DetectRuntime detects which container runtime is available
 // Returns the first runtime found: podman, docker, or none
-func (cm *ContainerManager) DetectRuntime() (ContainerRuntime, error) {
+func DetectRuntime() (ContainerRuntime, error) {
 	// Check for podman first (preferred for rootless)
 	if CommandExists("podman") {
 		return RuntimePodman, nil
@@ -40,7 +32,7 @@ func (cm *ContainerManager) DetectRuntime() (ContainerRuntime, error) {
 }
 
 // GetComposeCommand returns the appropriate compose command for the runtime
-func (cm *ContainerManager) GetComposeCommand(runtime ContainerRuntime) (string, error) {
+func GetComposeCommand(runtime ContainerRuntime) (string, error) {
 	switch runtime {
 	case RuntimePodman:
 		// Check if podman-compose is available
@@ -72,7 +64,7 @@ func (cm *ContainerManager) GetComposeCommand(runtime ContainerRuntime) (string,
 }
 
 // GetRuntimeVersion returns the version of the container runtime
-func (cm *ContainerManager) GetRuntimeVersion(runtime ContainerRuntime) (string, error) {
+func GetRuntimeVersion(runtime ContainerRuntime) (string, error) {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -93,7 +85,7 @@ func (cm *ContainerManager) GetRuntimeVersion(runtime ContainerRuntime) (string,
 }
 
 // ListContainers lists all containers (running and stopped)
-func (cm *ContainerManager) ListContainers(runtime ContainerRuntime) ([]string, error) {
+func ListContainers(runtime ContainerRuntime) ([]string, error) {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -122,7 +114,7 @@ func (cm *ContainerManager) ListContainers(runtime ContainerRuntime) ([]string, 
 }
 
 // ListRunningContainers lists only running containers
-func (cm *ContainerManager) ListRunningContainers(runtime ContainerRuntime) ([]string, error) {
+func ListRunningContainers(runtime ContainerRuntime) ([]string, error) {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -151,8 +143,8 @@ func (cm *ContainerManager) ListRunningContainers(runtime ContainerRuntime) ([]s
 }
 
 // IsContainerRunning checks if a specific container is running
-func (cm *ContainerManager) IsContainerRunning(runtime ContainerRuntime, containerName string) (bool, error) {
-	running, err := cm.ListRunningContainers(runtime)
+func IsContainerRunning(runtime ContainerRuntime, containerName string) (bool, error) {
+	running, err := ListRunningContainers(runtime)
 	if err != nil {
 		return false, err
 	}
@@ -167,7 +159,7 @@ func (cm *ContainerManager) IsContainerRunning(runtime ContainerRuntime, contain
 }
 
 // GetContainerLogs returns logs for a specific container
-func (cm *ContainerManager) GetContainerLogs(runtime ContainerRuntime, containerName string, lines int) (string, error) {
+func GetContainerLogs(runtime ContainerRuntime, containerName string, lines int) (string, error) {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -188,7 +180,7 @@ func (cm *ContainerManager) GetContainerLogs(runtime ContainerRuntime, container
 }
 
 // InspectContainer returns detailed information about a container
-func (cm *ContainerManager) InspectContainer(runtime ContainerRuntime, containerName string) (string, error) {
+func InspectContainer(runtime ContainerRuntime, containerName string) (string, error) {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -209,7 +201,7 @@ func (cm *ContainerManager) InspectContainer(runtime ContainerRuntime, container
 }
 
 // ListNetworks lists container networks
-func (cm *ContainerManager) ListNetworks(runtime ContainerRuntime) ([]string, error) {
+func ListNetworks(runtime ContainerRuntime) ([]string, error) {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -238,7 +230,7 @@ func (cm *ContainerManager) ListNetworks(runtime ContainerRuntime) ([]string, er
 }
 
 // PullImage pulls a container image
-func (cm *ContainerManager) PullImage(runtime ContainerRuntime, imageName string) error {
+func PullImage(runtime ContainerRuntime, imageName string) error {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -259,7 +251,7 @@ func (cm *ContainerManager) PullImage(runtime ContainerRuntime, imageName string
 }
 
 // ListImages lists container images
-func (cm *ContainerManager) ListImages(runtime ContainerRuntime) ([]string, error) {
+func ListImages(runtime ContainerRuntime) ([]string, error) {
 	var cmd *exec.Cmd
 
 	switch runtime {
@@ -288,7 +280,7 @@ func (cm *ContainerManager) ListImages(runtime ContainerRuntime) ([]string, erro
 }
 
 // CheckRootless returns true if the container runtime is running in rootless mode
-func (cm *ContainerManager) CheckRootless(runtime ContainerRuntime) (bool, error) {
+func CheckRootless(runtime ContainerRuntime) (bool, error) {
 	switch runtime {
 	case RuntimePodman:
 		cmd := exec.Command("podman", "info", "--format", "{{.Host.Security.Rootless}}")

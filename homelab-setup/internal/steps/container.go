@@ -17,10 +17,9 @@ import (
 
 // ContainerSetup handles container stack setup and configuration
 type ContainerSetup struct {
-	containers *system.ContainerManager
-	config     *config.Config
-	ui         *ui.UI
-	markers    *config.Markers
+	config  *config.Config
+	ui      *ui.UI
+	markers *config.Markers
 }
 
 // getContainersBase returns the base directory for container service files
@@ -35,12 +34,11 @@ func (c *ContainerSetup) serviceDirectory(serviceName string) string {
 }
 
 // NewContainerSetup creates a new ContainerSetup instance
-func NewContainerSetup(containers *system.ContainerManager, cfg *config.Config, ui *ui.UI, markers *config.Markers) *ContainerSetup {
+func NewContainerSetup(cfg *config.Config, ui *ui.UI, markers *config.Markers) *ContainerSetup {
 	return &ContainerSetup{
-		containers: containers,
-		config:     cfg,
-		ui:         ui,
-		markers:    markers,
+		config:  cfg,
+		ui:      ui,
+		markers: markers,
 	}
 }
 

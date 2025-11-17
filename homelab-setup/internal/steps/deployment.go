@@ -16,10 +16,9 @@ import (
 
 // Deployment handles service deployment
 type Deployment struct {
-	containers *system.ContainerManager
-	config     *config.Config
-	ui         *ui.UI
-	markers    *config.Markers
+	config  *config.Config
+	ui      *ui.UI
+	markers *config.Markers
 }
 
 // getServiceBaseDir resolves the base directory for service deployments.
@@ -37,12 +36,11 @@ type ServiceInfo struct {
 }
 
 // NewDeployment creates a new Deployment instance
-func NewDeployment(containers *system.ContainerManager, cfg *config.Config, ui *ui.UI, markers *config.Markers) *Deployment {
+func NewDeployment(cfg *config.Config, ui *ui.UI, markers *config.Markers) *Deployment {
 	return &Deployment{
-		containers: containers,
-		config:     cfg,
-		ui:         ui,
-		markers:    markers,
+		config:  cfg,
+		ui:      ui,
+		markers: markers,
 	}
 }
 
@@ -111,7 +109,7 @@ func (d *Deployment) CreateComposeService(serviceInfo *ServiceInfo) error {
 		return err
 	}
 
-	composeCmd, err := d.containers.GetComposeCommand(runtime)
+	composeCmd, err := system.GetComposeCommand(runtime)
 	if err != nil {
 		return fmt.Errorf("failed to get compose command: %w", err)
 	}
@@ -181,7 +179,7 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 		return err
 	}
 
-	composeCmd, err := d.containers.GetComposeCommand(runtime)
+	composeCmd, err := system.GetComposeCommand(runtime)
 	if err != nil {
 		return fmt.Errorf("failed to get compose command: %w", err)
 	}
@@ -254,7 +252,7 @@ func (d *Deployment) VerifyContainers(serviceInfo *ServiceInfo) error {
 	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
 
 	// List running containers
-	containers, err := d.containers.ListRunningContainers(runtime)
+	containers, err := system.ListRunningContainers(runtime)
 	if err != nil {
 		d.ui.Warning(fmt.Sprintf("Could not list containers: %v", err))
 		return nil // Non-critical
