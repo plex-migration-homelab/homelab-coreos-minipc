@@ -45,7 +45,8 @@ func TestAddToFstabAppendsEntryAndReloads(t *testing.T) {
 		t.Fatalf("failed to read fstab: %v", err)
 	}
 
-	expectedLine := "192.168.1.10:/export /mnt/data nfs defaults,nfsvers=4.2,_netdev 0 0"
+	// With the new configurable options, the default is "defaults,_netdev"
+	expectedLine := "192.168.1.10:/export /mnt/data nfs defaults,_netdev 0 0"
 	if !strings.Contains(string(data), expectedLine) {
 		t.Fatalf("fstab missing entry, content: %s", string(data))
 	}

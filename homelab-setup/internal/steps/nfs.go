@@ -285,19 +285,43 @@ func (n *NFSConfigurator) CreateMountPoint(mountPoint string) error {
 	return nil
 }
 
+// mountPointToUnitName converts a mount point path to a systemd unit name
+// using simple string replacement (no systemd-escape).
+// Example: "/mnt/nas-media" -> "mnt-nas-media.mount"
+func mountPointToUnitName(mountPoint string) string {
+	// Strip leading "/" if present
+	name := strings.TrimPrefix(mountPoint, "/")
+
+	// Replace remaining "/" with "-"
+	name = strings.ReplaceAll(name, "/", "-")
+
+	// Append ".mount"
+	return name + ".mount"
+}
+
+// getNFSMountOptions returns the NFS mount options from config or a default
+func (n *NFSConfigurator) getNFSMountOptions() string {
+	options := n.config.GetOrDefault("NFS_MOUNT_OPTIONS", "")
+	if options == "" {
+		return "defaults,_netdev"
+	}
+	return options
+}
+
 // CreateSystemdMountUnit creates a systemd mount unit for NFS
 func (n *NFSConfigurator) CreateSystemdMountUnit(host, export, mountPoint string) error {
 	n.ui.Info("Creating systemd mount unit...")
 
-	// Convert mount point to systemd unit name
-	// Example: /mnt/nas-media -> mnt-nas\x2dmedia.mount
-	unitName, err := pathToUnitName(n.runner, mountPoint)
-	if err != nil {
-		return fmt.Errorf("failed to escape mount point %s: %w", mountPoint, err)
-	}
+	// Convert mount point to systemd unit name using simple string replacement
+	// Example: /mnt/nas-media -> mnt-nas-media.mount
+	unitName := mountPointToUnitName(mountPoint)
 	unitPath := filepath.Join("/etc/systemd/system", unitName)
 
-	n.ui.Infof("Unit name: %s", unitName)
+	n.ui.Infof("Creating mount unit: %s", unitName)
+
+	// Get NFS mount options from config or use default
+	mountOptions := n.getNFSMountOptions()
+	n.ui.Infof("Using NFS mount options: %s", mountOptions)
 
 	// Generate mount unit content
 	content := fmt.Sprintf(`[Unit]
@@ -310,12 +334,12 @@ Wants=network-online.target
 What=%s:%s
 Where=%s
 Type=nfs
-Options=defaults,nfsvers=4.2,_netdev
+Options=%s
 TimeoutSec=30
 
 [Install]
 WantedBy=multi-user.target
-`, mountPoint, host, export, mountPoint)
+`, mountPoint, host, export, mountPoint, mountOptions)
 
 	// Check if unit already exists
 	existingContent, err := os.ReadFile(unitPath)
@@ -367,7 +391,10 @@ func pathToUnitName(runner system.CommandRunner, mountPoint string) (string, err
 func (n *NFSConfigurator) AddToFstab(host, export, mountPoint string) error {
 	n.ui.Info("Adding NFS mount to /etc/fstab...")
 
-	entry := fmt.Sprintf("%s:%s %s nfs defaults,nfsvers=4.2,_netdev 0 0", host, export, mountPoint)
+	// Get NFS mount options (same as systemd unit)
+	mountOptions := n.getNFSMountOptions()
+
+	entry := fmt.Sprintf("%s:%s %s nfs %s 0 0", host, export, mountPoint, mountOptions)
 	n.ui.Info("Fstab entry:")
 	n.ui.Printf("  %s", entry)
 	n.ui.Print("")
@@ -520,10 +547,7 @@ func (n *NFSConfigurator) Run() error {
 
 	// Start the mount unit
 	n.ui.Step("Starting Mount Unit")
-	unitName, err := pathToUnitName(n.runner, mountPoint)
-	if err != nil {
-		return fmt.Errorf("failed to escape mount point %s: %w", mountPoint, err)
-	}
+	unitName := mountPointToUnitName(mountPoint)
 	if output, err := n.runner.Run("sudo", "-n", "systemctl", "start", unitName); err != nil {
 		n.ui.Warning(fmt.Sprintf("Failed to start mount unit: %v", err))
 		n.ui.Info("Output: " + output)
