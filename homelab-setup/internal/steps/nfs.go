@@ -2,6 +2,7 @@ package steps
 
 import (
 	"fmt"
+	"net"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -101,11 +102,22 @@ func (n *NFSConfigurator) PromptForNFSDetails() (host, export, mountPoint string
 	}
 
 	// Validate IP or hostname
-	// Try IP validation first
-	if err := common.ValidateIP(host); err != nil {
-		// Not an IP, try as hostname
-		if err := common.ValidateDomain(host); err != nil {
+	// Validate NFS server - must be valid IPv4 or hostname
+	isValidIP := false
+	if ip := net.ParseIP(host); ip != nil && ip.To4() != nil {
+		isValidIP = true
+	}
+	if !isValidIP {
+		// Not an IP, validate as hostname/domain
+		if host == "" || len(host) > 253 || !strings.Contains(host, ".") {
 			return "", "", "", fmt.Errorf("invalid NFS server (not a valid IP or hostname): %s", host)
+		}
+		// Basic hostname validation
+		parts := strings.Split(host, ".")
+		for _, part := range parts {
+			if part == "" || len(part) > 63 {
+				return "", "", "", fmt.Errorf("invalid NFS server hostname: %s", host)
+			}
 		}
 	}
 

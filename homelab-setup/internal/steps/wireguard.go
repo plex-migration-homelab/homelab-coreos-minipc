@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/common"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
@@ -269,8 +270,12 @@ func (w *WireGuardSetup) PromptForConfig(publicKey string) (*WireGuardConfig, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to prompt for interface IP: %w", err)
 	}
-	if err := common.ValidateCIDR(interfaceIP); err != nil {
-		return nil, fmt.Errorf("invalid interface IP: %w", err)
+	// Validate CIDR notation
+	if interfaceIP == "" {
+		return nil, fmt.Errorf("interface IP cannot be empty")
+	}
+	if ip, network, err := net.ParseCIDR(interfaceIP); err != nil || ip.To4() == nil || network == nil {
+		return nil, fmt.Errorf("invalid IPv4 CIDR notation: %s", interfaceIP)
 	}
 	cfg.InterfaceIP = interfaceIP
 
@@ -280,9 +285,9 @@ func (w *WireGuardSetup) PromptForConfig(publicKey string) (*WireGuardConfig, er
 		return nil, fmt.Errorf("failed to prompt for listen port: %w", err)
 	}
 
-	// Validate port
-	if err := common.ValidatePort(listenPort); err != nil {
-		return nil, fmt.Errorf("invalid port: %w", err)
+	// Validate port (1-65535)
+	if p, err := strconv.Atoi(listenPort); err != nil || p < 1 || p > 65535 {
+		return nil, fmt.Errorf("invalid port number (must be 1-65535): %s", listenPort)
 	}
 	cfg.ListenPort = listenPort
 
@@ -449,8 +454,22 @@ func (w *WireGuardSetup) PromptForPeer(nextIP string) (*WireGuardPeer, error) {
 			w.ui.Error("Public key is required")
 			continue
 		}
-		if err := common.ValidateWireGuardKey(publicKey); err != nil {
-			w.ui.Error(fmt.Sprintf("Invalid WireGuard key: %v", err))
+		// Validate WireGuard key format (44 chars, base64, ends with '=')
+		if len(publicKey) != 44 || !strings.HasSuffix(publicKey, "=") {
+			w.ui.Error("Invalid WireGuard key format")
+			w.ui.Info("WireGuard keys are 44 characters, base64-encoded, ending with '='")
+			continue
+		}
+		// Check for valid base64 characters
+		validKey := true
+		for i, c := range publicKey {
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || (c == '=' && i == 43)) {
+				validKey = false
+				break
+			}
+		}
+		if !validKey {
+			w.ui.Error("Invalid WireGuard key: contains invalid characters")
 			w.ui.Info("WireGuard keys are 44 characters, base64-encoded, ending with '='")
 			continue
 		}
@@ -464,8 +483,13 @@ func (w *WireGuardSetup) PromptForPeer(nextIP string) (*WireGuardPeer, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to prompt for allowed IPs: %w", err)
 		}
-		if err := common.ValidateCIDR(allowedIPs); err != nil {
-			w.ui.Error(fmt.Sprintf("Invalid CIDR notation: %v. Please enter a valid CIDR (e.g., '10.253.0.2/32').", err))
+		// Validate CIDR notation
+		if allowedIPs == "" {
+			w.ui.Error("Allowed IPs cannot be empty")
+			continue
+		}
+		if ip, network, err := net.ParseCIDR(allowedIPs); err != nil || ip.To4() == nil || network == nil {
+			w.ui.Error("Invalid CIDR notation. Please enter a valid IPv4 CIDR (e.g., '10.253.0.2/32').")
 			continue
 		}
 		peer.AllowedIPs = allowedIPs
