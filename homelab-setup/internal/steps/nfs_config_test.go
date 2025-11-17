@@ -27,11 +27,12 @@ func TestAddToFstabAppendsEntryAndReloads(t *testing.T) {
 
 	fs := system.NewFileSystem()
 	network := system.NewNetwork()
+	packages := system.NewPackageManager()
 	markers := config.NewMarkers(tmpDir)
 	buf := &bytes.Buffer{}
 	testUI := ui.NewWithWriter(buf)
 
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, packages)
 	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{}}
 	nfs.runner = fakeRunner
 
@@ -59,11 +60,12 @@ func TestMountNFSUsesRunner(t *testing.T) {
 	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
 	fs := system.NewFileSystem()
 	network := system.NewNetwork()
+	packages := system.NewPackageManager()
 	markers := config.NewMarkers(tmpDir)
 	buf := &bytes.Buffer{}
 	testUI := ui.NewWithWriter(buf)
 
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, packages)
 	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
 		"systemd-escape --path --suffix=mount /mnt/nas-media": "mnt-nas\\x2dmedia.mount\n",
 	}}
@@ -88,11 +90,12 @@ func TestMountNFSFailureReturnsError(t *testing.T) {
 	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
 	fs := system.NewFileSystem()
 	network := system.NewNetwork()
+	packages := system.NewPackageManager()
 	markers := config.NewMarkers(tmpDir)
 	buf := &bytes.Buffer{}
 	testUI := ui.NewWithWriter(buf)
 
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, packages)
 	fakeRunner := &fakeCommandRunner{failCommand: "sudo -n mount /mnt/fail"}
 	nfs.runner = fakeRunner
 
@@ -139,11 +142,12 @@ func TestCreateSystemdMountUnit(t *testing.T) {
 	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
 	fs := system.NewFileSystem()
 	network := system.NewNetwork()
+	packages := system.NewPackageManager()
 	markers := config.NewMarkers(tmpDir)
 	buf := &bytes.Buffer{}
 	testUI := ui.NewWithWriter(buf)
 
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, packages)
 	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
 		"systemd-escape --path --suffix=mount /mnt/nas-media": "mnt-nas\\x2dmedia.mount\n",
 	}}

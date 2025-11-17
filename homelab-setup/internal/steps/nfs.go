@@ -14,23 +14,25 @@ import (
 
 // NFSConfigurator handles NFS mount configuration
 type NFSConfigurator struct {
-	fs      *system.FileSystem
-	network *system.Network
-	config  *config.Config
-	ui      *ui.UI
-	markers *config.Markers
-	runner  system.CommandRunner
+	fs       *system.FileSystem
+	network  *system.Network
+	config   *config.Config
+	ui       *ui.UI
+	markers  *config.Markers
+	runner   system.CommandRunner
+	packages *system.PackageManager
 }
 
 // NewNFSConfigurator creates a new NFSConfigurator instance
-func NewNFSConfigurator(fs *system.FileSystem, network *system.Network, cfg *config.Config, ui *ui.UI, markers *config.Markers) *NFSConfigurator {
+func NewNFSConfigurator(fs *system.FileSystem, network *system.Network, cfg *config.Config, ui *ui.UI, markers *config.Markers, packages *system.PackageManager) *NFSConfigurator {
 	return &NFSConfigurator{
-		fs:      fs,
-		network: network,
-		config:  cfg,
-		ui:      ui,
-		markers: markers,
-		runner:  system.NewCommandRunner(),
+		fs:       fs,
+		network:  network,
+		config:   cfg,
+		ui:       ui,
+		markers:  markers,
+		runner:   system.NewCommandRunner(),
+		packages: packages,
 	}
 }
 
@@ -40,6 +42,35 @@ func (n *NFSConfigurator) getFstabPath() string {
 		return "/etc/fstab"
 	}
 	return path
+}
+
+// CheckNFSUtils verifies that nfs-utils package is installed
+func (n *NFSConfigurator) CheckNFSUtils() error {
+	n.ui.Info("Checking for NFS client utilities...")
+
+	installed, err := n.packages.IsInstalled("nfs-utils")
+	if err != nil {
+		n.ui.Warning(fmt.Sprintf("Could not verify nfs-utils package: %v", err))
+		n.ui.Info("Proceeding anyway - mount may fail if package is not installed")
+		return nil
+	}
+
+	if !installed {
+		n.ui.Error("nfs-utils package is not installed")
+		n.ui.Info("NFS client utilities are required for mounting NFS shares")
+		n.ui.Print("")
+		n.ui.Info("To install nfs-utils:")
+		n.ui.Info("  1. Install the package:")
+		n.ui.Info("     sudo rpm-ostree install nfs-utils")
+		n.ui.Info("  2. Reboot the system:")
+		n.ui.Info("     sudo systemctl reboot")
+		n.ui.Info("  3. Re-run the setup after reboot")
+		n.ui.Print("")
+		return fmt.Errorf("nfs-utils package is not installed")
+	}
+
+	n.ui.Success("nfs-utils package is installed")
+	return nil
 }
 
 // PromptForNFS asks if the user wants to configure NFS
@@ -442,6 +473,12 @@ func (n *NFSConfigurator) Run() error {
 		return nil
 	}
 
+	// Check for nfs-utils package
+	n.ui.Step("Checking NFS Prerequisites")
+	if err := n.CheckNFSUtils(); err != nil {
+		return fmt.Errorf("NFS prerequisites check failed: %w", err)
+	}
+
 	// Get NFS details
 	n.ui.Step("NFS Server Details")
 	host, export, mountPoint, err := n.PromptForNFSDetails()
@@ -490,7 +527,23 @@ func (n *NFSConfigurator) Run() error {
 	if output, err := n.runner.Run("sudo", "-n", "systemctl", "start", unitName); err != nil {
 		n.ui.Warning(fmt.Sprintf("Failed to start mount unit: %v", err))
 		n.ui.Info("Output: " + output)
-		n.ui.Info("The mount will be activated automatically when needed")
+		n.ui.Print("")
+		n.ui.Info("The mount unit has been created and enabled, but failed to start.")
+		n.ui.Info("Common causes:")
+		n.ui.Info("  1. NFS server is not currently reachable")
+		n.ui.Info("  2. Network is not fully initialized")
+		n.ui.Info("  3. SELinux may be blocking the mount")
+		n.ui.Print("")
+		n.ui.Info("The mount will be attempted automatically:")
+		n.ui.Info("  - At next boot")
+		n.ui.Info("  - When accessing the mount point")
+		n.ui.Print("")
+		n.ui.Info("To diagnose the issue:")
+		n.ui.Infof("  sudo journalctl -u %s", unitName)
+		n.ui.Info("To manually start the mount:")
+		n.ui.Infof("  sudo systemctl start %s", unitName)
+		n.ui.Info("To check mount status:")
+		n.ui.Infof("  sudo systemctl status %s", unitName)
 	} else {
 		n.ui.Success("NFS share mounted successfully")
 	}
