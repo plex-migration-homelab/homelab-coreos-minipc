@@ -294,8 +294,15 @@ func (n *NFSConfigurator) CreateMountPoint(mountPoint string) error {
 // using simple string replacement (no systemd-escape).
 // Example: "/mnt/nas-media" -> "mnt-nas-media.mount"
 func mountPointToUnitName(mountPoint string) string {
+	cleanedPath := filepath.Clean(mountPoint)
+
+	// Remove trailing path separator (but keep root "/")
+	if len(cleanedPath) > 1 && strings.HasSuffix(cleanedPath, string(filepath.Separator)) {
+		cleanedPath = strings.TrimSuffix(cleanedPath, string(filepath.Separator))
+	}
+
 	// Strip leading "/" if present
-	name := strings.TrimPrefix(mountPoint, "/")
+	name := strings.TrimPrefix(cleanedPath, "/")
 
 	// Replace remaining "/" with "-"
 	name = strings.ReplaceAll(name, "/", "-")
