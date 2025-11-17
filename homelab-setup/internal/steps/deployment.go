@@ -16,12 +16,9 @@ import (
 
 // Deployment handles service deployment
 type Deployment struct {
-	containers *system.ContainerManager
-	fs         *system.FileSystem
-	services   *system.ServiceManager
-	config     *config.Config
-	ui         *ui.UI
-	markers    *config.Markers
+	config  *config.Config
+	ui      *ui.UI
+	markers *config.Markers
 }
 
 // getServiceBaseDir resolves the base directory for service deployments.
@@ -39,14 +36,11 @@ type ServiceInfo struct {
 }
 
 // NewDeployment creates a new Deployment instance
-func NewDeployment(containers *system.ContainerManager, fs *system.FileSystem, services *system.ServiceManager, cfg *config.Config, ui *ui.UI, markers *config.Markers) *Deployment {
+func NewDeployment(cfg *config.Config, ui *ui.UI, markers *config.Markers) *Deployment {
 	return &Deployment{
-		containers: containers,
-		fs:         fs,
-		services:   services,
-		config:     cfg,
-		ui:         ui,
-		markers:    markers,
+		config:  cfg,
+		ui:      ui,
+		markers: markers,
 	}
 }
 
@@ -78,7 +72,7 @@ func (d *Deployment) GetServiceInfo(serviceName string) *ServiceInfo {
 func (d *Deployment) CheckExistingService(serviceInfo *ServiceInfo) (bool, error) {
 	d.ui.Infof("Checking for service: %s", serviceInfo.UnitName)
 
-	exists, err := d.services.ServiceExists(serviceInfo.UnitName)
+	exists, err := system.ServiceExists(serviceInfo.UnitName)
 	if err != nil {
 		return false, fmt.Errorf("failed to check service: %w", err)
 	}
@@ -115,7 +109,7 @@ func (d *Deployment) CreateComposeService(serviceInfo *ServiceInfo) error {
 		return err
 	}
 
-	composeCmd, err := d.containers.GetComposeCommand(runtime)
+	composeCmd, err := system.GetComposeCommand(runtime)
 	if err != nil {
 		return fmt.Errorf("failed to get compose command: %w", err)
 	}
@@ -146,7 +140,7 @@ WantedBy=multi-user.target
 
 	// Write service file
 	unitPath := filepath.Join("/etc/systemd/system", serviceInfo.UnitName)
-	if err := d.fs.WriteFile(unitPath, []byte(unitContent), 0644); err != nil {
+	if err := system.WriteFile(unitPath, []byte(unitContent), 0644); err != nil {
 		return fmt.Errorf("failed to write service file: %w", err)
 	}
 
@@ -154,7 +148,7 @@ WantedBy=multi-user.target
 
 	// Reload systemd daemon
 	d.ui.Info("Reloading systemd daemon...")
-	if err := d.services.DaemonReload(); err != nil {
+	if err := system.SystemdDaemonReload(); err != nil {
 		d.ui.Warning(fmt.Sprintf("Failed to reload daemon: %v", err))
 		// Non-critical, continue
 	}
@@ -170,8 +164,8 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 	composeFile := filepath.Join(serviceInfo.Directory, "compose.yml")
 	dockerComposeFile := filepath.Join(serviceInfo.Directory, "docker-compose.yml")
 
-	composeExists, _ := d.fs.FileExists(composeFile)
-	dockerComposeExists, _ := d.fs.FileExists(dockerComposeFile)
+	composeExists, _ := system.FileExists(composeFile)
+	dockerComposeExists, _ := system.FileExists(dockerComposeFile)
 
 	if !composeExists && !dockerComposeExists {
 		return fmt.Errorf("no compose file found in %s", serviceInfo.Directory)
@@ -185,7 +179,7 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 		return err
 	}
 
-	composeCmd, err := d.containers.GetComposeCommand(runtime)
+	composeCmd, err := system.GetComposeCommand(runtime)
 	if err != nil {
 		return fmt.Errorf("failed to get compose command: %w", err)
 	}
@@ -214,7 +208,7 @@ func (d *Deployment) PullImages(serviceInfo *ServiceInfo) error {
 	}
 	cmdParts = append(cmdParts, "pull")
 
-	if err := d.services.RunCommand(cmdParts[0], cmdParts[1:]...); err != nil {
+	if err := system.RunSystemCommand(cmdParts[0], cmdParts[1:]...); err != nil {
 		d.ui.Error(fmt.Sprintf("Failed to pull images: %v", err))
 		d.ui.Info("You may need to pull images manually later")
 		return nil // Non-critical error, continue
@@ -230,14 +224,14 @@ func (d *Deployment) EnableAndStartService(serviceInfo *ServiceInfo) error {
 
 	// Enable service
 	d.ui.Infof("Enabling service: %s", serviceInfo.UnitName)
-	if err := d.services.EnableService(serviceInfo.UnitName); err != nil {
+	if err := system.EnableService(serviceInfo.UnitName); err != nil {
 		return fmt.Errorf("failed to enable service: %w", err)
 	}
 	d.ui.Success("Service enabled")
 
 	// Start service
 	d.ui.Infof("Starting service: %s", serviceInfo.UnitName)
-	if err := d.services.StartService(serviceInfo.UnitName); err != nil {
+	if err := system.StartService(serviceInfo.UnitName); err != nil {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 	d.ui.Success("Service started")
@@ -258,7 +252,7 @@ func (d *Deployment) VerifyContainers(serviceInfo *ServiceInfo) error {
 	runtimeStr := d.config.GetOrDefault("CONTAINER_RUNTIME", "podman")
 
 	// List running containers
-	containers, err := d.containers.ListRunningContainers(runtime)
+	containers, err := system.ListRunningContainers(runtime)
 	if err != nil {
 		d.ui.Warning(fmt.Sprintf("Could not list containers: %v", err))
 		return nil // Non-critical

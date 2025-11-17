@@ -33,14 +33,10 @@ type WireGuardPeer struct {
 
 // WireGuardSetup handles WireGuard VPN setup
 type WireGuardSetup struct {
-	packages *system.PackageManager
-	services *system.ServiceManager
-	fs       *system.FileSystem
-	network  *system.Network
-	config   *config.Config
-	ui       *ui.UI
-	markers  *config.Markers
-	keygen   WireGuardKeyGenerator
+	config  *config.Config
+	ui      *ui.UI
+	markers *config.Markers
+	keygen  WireGuardKeyGenerator
 }
 
 // WireGuardKeyGenerator describes key generation/derivation helpers so the
@@ -152,16 +148,12 @@ func sanitizeConfigValue(value string) string {
 }
 
 // NewWireGuardSetup creates a new WireGuardSetup instance
-func NewWireGuardSetup(packages *system.PackageManager, services *system.ServiceManager, fs *system.FileSystem, network *system.Network, cfg *config.Config, ui *ui.UI, markers *config.Markers) *WireGuardSetup {
+func NewWireGuardSetup(cfg *config.Config, ui *ui.UI, markers *config.Markers) *WireGuardSetup {
 	return &WireGuardSetup{
-		packages: packages,
-		services: services,
-		fs:       fs,
-		network:  network,
-		config:   cfg,
-		ui:       ui,
-		markers:  markers,
-		keygen:   CommandKeyGenerator{},
+		config:  cfg,
+		ui:      ui,
+		markers: markers,
+		keygen:  CommandKeyGenerator{},
 	}
 }
 
@@ -230,7 +222,7 @@ func (w *WireGuardSetup) PromptForWireGuard() (bool, error) {
 func (w *WireGuardSetup) CheckWireGuardInstalled() error {
 	w.ui.Info("Checking for WireGuard tools...")
 
-	installed, err := w.packages.IsInstalled("wireguard-tools")
+	installed, err := system.IsPackageInstalled("wireguard-tools")
 	if err != nil {
 		return fmt.Errorf("failed to check wireguard-tools: %w", err)
 	}
@@ -324,15 +316,15 @@ PrivateKey = %s
 	configDir := w.configDir()
 	configPath := filepath.Join(configDir, fmt.Sprintf("%s.conf", cfg.InterfaceName))
 
-	if err := w.fs.EnsureDirectory(configDir, "root:root", 0750); err != nil {
+	if err := system.EnsureDirectory(configDir, "root:root", 0750); err != nil {
 		return fmt.Errorf("failed to ensure WireGuard directory %s: %w", configDir, err)
 	}
 
-	if err := w.fs.WriteFile(configPath, []byte(configContent), 0600); err != nil {
+	if err := system.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		return fmt.Errorf("failed to write WireGuard config: %w", err)
 	}
 
-	exists, err := w.fs.FileExists(configPath)
+	exists, err := system.FileExists(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to verify config file: %w", err)
 	}
@@ -340,7 +332,7 @@ PrivateKey = %s
 		return fmt.Errorf("WireGuard config %s was not created", configPath)
 	}
 
-	perms, err := w.fs.GetPermissions(configPath)
+	perms, err := system.GetPermissions(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to check permissions on %s: %w", configPath, err)
 	}
@@ -381,7 +373,7 @@ func (w *WireGuardSetup) EnableService(interfaceName string) error {
 	w.ui.Infof("Enabling %s...", serviceName)
 
 	// Enable service
-	if err := w.services.Enable(serviceName); err != nil {
+	if err := system.EnableService(serviceName); err != nil {
 		w.ui.Warning(fmt.Sprintf("Failed to enable service: %v", err))
 		w.ui.Info("You may need to run manually:")
 		w.ui.Infof("  sudo systemctl enable %s", serviceName)
@@ -391,7 +383,7 @@ func (w *WireGuardSetup) EnableService(interfaceName string) error {
 
 	// Start service
 	w.ui.Infof("Starting %s...", serviceName)
-	if err := w.services.Start(serviceName); err != nil {
+	if err := system.StartService(serviceName); err != nil {
 		w.ui.Warning(fmt.Sprintf("Failed to start service: %v", err))
 		w.ui.Info("You may need to run manually:")
 		w.ui.Infof("  sudo systemctl start %s", serviceName)
@@ -400,7 +392,7 @@ func (w *WireGuardSetup) EnableService(interfaceName string) error {
 	w.ui.Success("Service started")
 
 	// Check if service is actually running
-	active, err := w.services.IsActive(serviceName)
+	active, err := system.IsServiceActive(serviceName)
 	if err != nil {
 		w.ui.Warning(fmt.Sprintf("Could not verify service status: %v", err))
 	} else if active {
@@ -524,7 +516,7 @@ func (w *WireGuardSetup) AddPeerToConfig(interfaceName string, peer *WireGuardPe
 	newContent := string(output) + peerSection
 
 	// Write updated config
-	if err := w.fs.WriteFile(configPath, []byte(newContent), 0600); err != nil {
+	if err := system.WriteFile(configPath, []byte(newContent), 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -634,7 +626,7 @@ func (w *WireGuardSetup) AddPeers(interfaceName, publicKey, interfaceIP string) 
 
 		// Check if service is running and offer to restart
 		serviceName := fmt.Sprintf("wg-quick@%s.service", interfaceName)
-		active, _ := w.services.IsActive(serviceName)
+		active, _ := system.IsServiceActive(serviceName)
 
 		if active {
 			w.ui.Print("")
@@ -642,7 +634,7 @@ func (w *WireGuardSetup) AddPeers(interfaceName, publicKey, interfaceIP string) 
 			restart, err := w.ui.PromptYesNo("Restart the service now?", true)
 			if err == nil && restart {
 				w.ui.Info("Restarting service...")
-				if err := w.services.Restart(serviceName); err != nil {
+				if err := system.RestartService(serviceName); err != nil {
 					w.ui.Warning(fmt.Sprintf("Failed to restart service: %v", err))
 					w.ui.Infof("Restart manually: sudo systemctl restart %s", serviceName)
 				} else {

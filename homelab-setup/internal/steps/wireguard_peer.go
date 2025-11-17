@@ -270,7 +270,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 	}
 
 	configPath := filepath.Join(w.configDir(), fmt.Sprintf("%s.conf", interfaceName))
-	exists, err := w.fs.FileExists(configPath)
+	exists, err := system.FileExists(configPath)
 	if err != nil {
 		return err
 	}
@@ -278,7 +278,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 		return fmt.Errorf("WireGuard config %s does not exist", configPath)
 	}
 
-	rawConfig, err := w.fs.ReadFile(configPath)
+	rawConfig, err := system.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", configPath, err)
 	}
@@ -457,7 +457,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 
 	serverBlock := buildServerPeerBlock(peerName, clientPublic, presharedKey, nextIP, keepalive)
 	newConfig := appendPeerBlock(string(rawConfig), serverBlock)
-	if err := w.fs.WriteFile(configPath, []byte(newConfig), 0600); err != nil {
+	if err := system.WriteFile(configPath, []byte(newConfig), 0600); err != nil {
 		return fmt.Errorf("failed to update %s: %w", configPath, err)
 	}
 
@@ -479,7 +479,7 @@ func (w *WireGuardSetup) AddPeerWorkflow(opts *WireGuardPeerWorkflowOptions) err
 		restart, err := w.ui.PromptYesNo(fmt.Sprintf("Restart wg-quick@%s now?", interfaceName), true)
 		if err == nil && restart {
 			serviceName := fmt.Sprintf("wg-quick@%s.service", interfaceName)
-			if err := w.services.Restart(serviceName); err != nil {
+			if err := system.RestartService(serviceName); err != nil {
 				w.ui.Warningf("Failed to restart %s: %v", serviceName, err)
 			} else {
 				w.ui.Successf("Service %s restarted", serviceName)

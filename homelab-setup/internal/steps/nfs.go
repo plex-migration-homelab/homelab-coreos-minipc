@@ -12,32 +12,21 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
-// PackageChecker defines the interface for checking package installation status
-type PackageChecker interface {
-	IsInstalled(packageName string) (bool, error)
-}
-
 // NFSConfigurator handles NFS mount configuration
 type NFSConfigurator struct {
-	fs       system.FileSystemManager
-	network  *system.Network
-	config   *config.Config
-	ui       *ui.UI
-	markers  *config.Markers
-	runner   system.CommandRunner
-	packages PackageChecker
+	config  *config.Config
+	ui      *ui.UI
+	markers *config.Markers
+	runner  system.CommandRunner
 }
 
 // NewNFSConfigurator creates a new NFSConfigurator instance
-func NewNFSConfigurator(fs system.FileSystemManager, network *system.Network, cfg *config.Config, ui *ui.UI, markers *config.Markers, packages PackageChecker) *NFSConfigurator {
+func NewNFSConfigurator(cfg *config.Config, ui *ui.UI, markers *config.Markers) *NFSConfigurator {
 	return &NFSConfigurator{
-		fs:       fs,
-		network:  network,
-		config:   cfg,
-		ui:       ui,
-		markers:  markers,
-		runner:   system.NewCommandRunner(),
-		packages: packages,
+		config:  cfg,
+		ui:      ui,
+		markers: markers,
+		runner:  system.NewCommandRunner(),
 	}
 }
 
@@ -45,7 +34,7 @@ func NewNFSConfigurator(fs system.FileSystemManager, network *system.Network, cf
 func (n *NFSConfigurator) CheckNFSUtils() error {
 	n.ui.Info("Checking for NFS client utilities...")
 
-	installed, err := n.packages.IsInstalled("nfs-utils")
+	installed, err := system.IsPackageInstalled("nfs-utils")
 	if err != nil {
 		n.ui.Warning(fmt.Sprintf("Could not verify nfs-utils package: %v", err))
 		n.ui.Info("Proceeding anyway - mount may fail if package is not installed")
@@ -158,7 +147,7 @@ func (n *NFSConfigurator) ValidateNFSConnection(host string) error {
 	}
 
 	// Test basic connectivity with configurable timeout
-	reachable, err := n.network.TestConnectivity(host, timeout)
+	reachable, err := system.TestConnectivity(host, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to test connectivity: %w", err)
 	}
@@ -175,7 +164,7 @@ func (n *NFSConfigurator) ValidateNFSConnection(host string) error {
 	n.ui.Success("NFS server is reachable")
 
 	// Check if NFS exports are available
-	hasExports, err := n.network.CheckNFSServer(host)
+	hasExports, err := system.CheckNFSServer(host)
 	if err != nil {
 		return fmt.Errorf("failed to check NFS exports: %w", err)
 	}
@@ -199,7 +188,7 @@ func (n *NFSConfigurator) ValidateNFSConnection(host string) error {
 		n.ui.Success("NFS server has accessible exports")
 
 		// Try to display exports
-		exports, err := n.network.GetNFSExports(host)
+		exports, err := system.GetNFSExports(host)
 		if err == nil && exports != "" {
 			n.ui.Print("")
 			n.ui.Info("Available NFS exports:")
@@ -220,7 +209,7 @@ func (n *NFSConfigurator) ValidateNFSExport(host, export string) error {
 	n.ui.Infof("Verifying export path '%s' on server...", export)
 
 	// Get the list of exports from the server
-	exports, err := n.network.GetNFSExports(host)
+	exports, err := system.GetNFSExports(host)
 	if err != nil {
 		n.ui.Warning(fmt.Sprintf("Could not verify export path: %v", err))
 		n.ui.Info("Proceeding without verification - mount will fail if export doesn't exist")
@@ -274,7 +263,7 @@ func (n *NFSConfigurator) CreateMountPoint(mountPoint string) error {
 	n.ui.Infof("Creating mount point %s...", mountPoint)
 
 	// Create directory with root ownership (mount points should be owned by root)
-	if err := n.fs.EnsureDirectory(mountPoint, "root:root", 0755); err != nil {
+	if err := system.EnsureDirectory(mountPoint, "root:root", 0755); err != nil {
 		return fmt.Errorf("failed to create mount point: %w", err)
 	}
 
@@ -362,13 +351,13 @@ WantedBy=multi-user.target
 `, mountPoint, mountPoint)
 
 	// Write the mount unit file.
-	if err := n.fs.WriteFile(mountUnitPath, []byte(mountContent), 0644); err != nil {
+	if err := system.WriteFile(mountUnitPath, []byte(mountContent), 0644); err != nil {
 		return fmt.Errorf("failed to write mount unit %s: %w", mountUnitPath, err)
 	}
 	n.ui.Successf("Created mount unit: %s", mountUnitPath)
 
 	// Write the automount unit file.
-	if err := n.fs.WriteFile(automountUnitPath, []byte(automountContent), 0644); err != nil {
+	if err := system.WriteFile(automountUnitPath, []byte(automountContent), 0644); err != nil {
 		return fmt.Errorf("failed to write automount unit %s: %w", automountUnitPath, err)
 	}
 	n.ui.Successf("Created automount unit: %s", automountUnitPath)
