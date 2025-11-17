@@ -117,7 +117,7 @@ func NewStepManager(
 		user:       steps.NewUserConfigurator(userMgr, cfg, uiInstance, markers),
 		directory:  steps.NewDirectorySetup(fs, cfg, uiInstance, markers),
 		wireguard:  steps.NewWireGuardSetup(packages, services, fs, network, cfg, uiInstance, markers),
-		nfs:        steps.NewNFSConfigurator(fs, network, cfg, uiInstance, markers),
+		nfs:        steps.NewNFSConfigurator(fs, network, cfg, uiInstance, markers, packages),
 		container:  steps.NewContainerSetup(containers, fs, cfg, uiInstance, markers),
 		deployment: steps.NewDeployment(containers, fs, services, cfg, uiInstance, markers),
 	}

@@ -3,7 +3,6 @@ package steps
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,95 +11,6 @@ import (
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
-
-func TestAddToFstabAppendsEntryAndReloads(t *testing.T) {
-	tmpDir := t.TempDir()
-	fstabPath := filepath.Join(tmpDir, "fstab")
-	if err := os.WriteFile(fstabPath, []byte("# test fstab\n"), 0644); err != nil {
-		t.Fatalf("failed to seed fstab: %v", err)
-	}
-
-	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
-	if err := cfg.Set("NFS_FSTAB_PATH", fstabPath); err != nil {
-		t.Fatalf("failed to set fstab path: %v", err)
-	}
-
-	fs := system.NewFileSystem()
-	network := system.NewNetwork()
-	markers := config.NewMarkers(tmpDir)
-	buf := &bytes.Buffer{}
-	testUI := ui.NewWithWriter(buf)
-
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
-	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{}}
-	nfs.runner = fakeRunner
-
-	if err := nfs.AddToFstab("192.168.1.10", "/export", "/mnt/data"); err != nil {
-		t.Fatalf("AddToFstab failed: %v", err)
-	}
-
-	data, err := os.ReadFile(fstabPath)
-	if err != nil {
-		t.Fatalf("failed to read fstab: %v", err)
-	}
-
-	expectedLine := "192.168.1.10:/export /mnt/data nfs defaults,nfsvers=4.2,_netdev 0 0"
-	if !strings.Contains(string(data), expectedLine) {
-		t.Fatalf("fstab missing entry, content: %s", string(data))
-	}
-
-	if !fakeRunner.ran("sudo -n systemctl daemon-reload") {
-		t.Fatalf("expected systemctl daemon-reload to run, commands: %v", fakeRunner.commands)
-	}
-}
-
-func TestMountNFSUsesRunner(t *testing.T) {
-	tmpDir := t.TempDir()
-	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
-	fs := system.NewFileSystem()
-	network := system.NewNetwork()
-	markers := config.NewMarkers(tmpDir)
-	buf := &bytes.Buffer{}
-	testUI := ui.NewWithWriter(buf)
-
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
-	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
-		"systemd-escape --path --suffix=mount /mnt/nas-media": "mnt-nas\\x2dmedia.mount\n",
-	}}
-	nfs.runner = fakeRunner
-
-	mountPoint := filepath.Join(tmpDir, "mnt")
-	if err := os.MkdirAll(mountPoint, 0755); err != nil {
-		t.Fatalf("failed to create mount point: %v", err)
-	}
-
-	if err := nfs.MountNFS(mountPoint); err != nil {
-		t.Fatalf("MountNFS failed: %v", err)
-	}
-
-	if !fakeRunner.ran(fmt.Sprintf("sudo -n mount %s", mountPoint)) {
-		t.Fatalf("expected mount command to run, commands: %v", fakeRunner.commands)
-	}
-}
-
-func TestMountNFSFailureReturnsError(t *testing.T) {
-	tmpDir := t.TempDir()
-	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
-	fs := system.NewFileSystem()
-	network := system.NewNetwork()
-	markers := config.NewMarkers(tmpDir)
-	buf := &bytes.Buffer{}
-	testUI := ui.NewWithWriter(buf)
-
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
-	fakeRunner := &fakeCommandRunner{failCommand: "sudo -n mount /mnt/fail"}
-	nfs.runner = fakeRunner
-
-	mountPoint := "/mnt/fail"
-	if err := nfs.MountNFS(mountPoint); err == nil {
-		t.Fatal("expected MountNFS to fail when runner returns error")
-	}
-}
 
 type fakeCommandRunner struct {
 	commands       []string
@@ -129,13 +39,137 @@ func (f *fakeCommandRunner) ran(command string) bool {
 	return false
 }
 
-func TestCreateSystemdMountUnit(t *testing.T) {
-	// This test verifies the systemd unit file generation logic
-	// The function tries to write to /etc/systemd/system which requires root
-	// In a test environment, we'll skip the actual execution but verify the logic
+// fakePackageManager is a mock PackageManager for testing
+type fakePackageManager struct {
+	installedPackages map[string]bool
+	checkError        error
+}
 
+func (f *fakePackageManager) IsInstalled(packageName string) (bool, error) {
+	if f.checkError != nil {
+		return false, f.checkError
+	}
+	installed, ok := f.installedPackages[packageName]
+	if !ok {
+		return false, nil
+	}
+	return installed, nil
+}
+
+func (f *fakePackageManager) CheckMultiple(packages []string) (map[string]bool, error) {
+	result := make(map[string]bool)
+	for _, pkg := range packages {
+		installed, err := f.IsInstalled(pkg)
+		if err != nil {
+			return nil, err
+		}
+		result[pkg] = installed
+	}
+	return result, nil
+}
+
+func (f *fakePackageManager) GetPackageVersion(packageName string) (string, error) {
+	if f.checkError != nil {
+		return "", f.checkError
+	}
+	if installed, ok := f.installedPackages[packageName]; ok && installed {
+		return "1.0.0", nil
+	}
+	return "", fmt.Errorf("package not installed")
+}
+
+func TestCreateSystemdUnits(t *testing.T) {
 	tmpDir := t.TempDir()
+	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
 
+	// Use the mock filesystem to capture output
+	mockFS := system.NewMockFileSystem()
+
+	network := system.NewNetwork()
+	packages := system.NewPackageManager()
+	markers := config.NewMarkers(tmpDir)
+	buf := &bytes.Buffer{}
+	testUI := ui.NewWithWriter(buf)
+
+	nfs := NewNFSConfigurator(mockFS, network, cfg, testUI, markers, packages)
+	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{}}
+	nfs.runner = fakeRunner
+
+	host := "192.168.1.10"
+	export := "/mnt/storage/media"
+	mountPoint := "/mnt/nas-media"
+
+	err := nfs.CreateSystemdUnits(host, export, mountPoint)
+	if err != nil {
+		t.Fatalf("CreateSystemdUnits failed: %v", err)
+	}
+
+	// 1. Verify .mount file content
+	mountUnitName := "mnt-nas-media.mount"
+	mountUnitPath := filepath.Join("/etc/systemd/system", mountUnitName)
+	mountContent, found := mockFS.WrittenFiles[mountUnitPath]
+	if !found {
+		t.Fatalf("expected mount unit file %s to be written, but it wasn't", mountUnitPath)
+	}
+	if !strings.Contains(string(mountContent), "What=192.168.1.10:/mnt/storage/media") {
+		t.Errorf(".mount file has wrong 'What=' line: %s", string(mountContent))
+	}
+	if !strings.Contains(string(mountContent), "Where=/mnt/nas-media") {
+		t.Errorf(".mount file has wrong 'Where=' line: %s", string(mountContent))
+	}
+	if !strings.Contains(string(mountContent), "Options=nofail,defaults,_netdev") {
+		t.Errorf(".mount file has wrong 'Options=' line: %s", string(mountContent))
+	}
+
+	// 2. Verify .automount file content
+	automountUnitName := "mnt-nas-media.automount"
+	automountUnitPath := filepath.Join("/etc/systemd/system", automountUnitName)
+	automountContent, found := mockFS.WrittenFiles[automountUnitPath]
+	if !found {
+		t.Fatalf("expected automount unit file %s to be written, but it wasn't", automountUnitPath)
+	}
+	if !strings.Contains(string(automountContent), "Where=/mnt/nas-media") {
+		t.Errorf(".automount file has wrong 'Where=' line: %s", string(automountContent))
+	}
+	if !strings.Contains(string(automountContent), "[Automount]") {
+		t.Errorf(".automount file is missing [Automount] section: %s", string(automountContent))
+	}
+
+	// 3. Verify systemd commands
+	if !fakeRunner.ran("sudo -n systemctl daemon-reload") {
+		t.Error("expected 'systemctl daemon-reload' to be run")
+	}
+	if !fakeRunner.ran("sudo -n systemctl enable --now mnt-nas-media.automount") {
+		t.Error("expected 'systemctl enable --now' for the automount unit to be run")
+	}
+}
+
+func TestMountPointToUnitBaseName(t *testing.T) {
+	tests := []struct {
+		name       string
+		mountPoint string
+		expected   string
+	}{
+		{name: "canonical path", mountPoint: "/mnt/nas-media", expected: "mnt-nas-media"},
+		{name: "trailing slash", mountPoint: "/mnt/nas-media/", expected: "mnt-nas-media"},
+		{name: "multiple trailing slashes", mountPoint: "/mnt/nas-media///", expected: "mnt-nas-media"},
+		{name: "whitespace replaced", mountPoint: "/mnt/My Media", expected: "mnt-My-Media"},
+		{name: "multiple whitespaces", mountPoint: "/mnt/My  Media", expected: "mnt-My-Media"},
+		{name: "leading and trailing spaces", mountPoint: " /mnt/My Media ", expected: "mnt-My-Media"},
+		{name: "path with multiple subdirs", mountPoint: "/srv/data/long/path", expected: "srv-data-long-path"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mountPointToUnitBaseName(tt.mountPoint); got != tt.expected {
+				t.Fatalf("mountPointToUnitBaseName(%q) = %q, want %q", tt.mountPoint, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCheckNFSUtilsWhenInstalled(t *testing.T) {
+	tmpDir := t.TempDir()
 	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
 	fs := system.NewFileSystem()
 	network := system.NewNetwork()
@@ -143,58 +177,86 @@ func TestCreateSystemdMountUnit(t *testing.T) {
 	buf := &bytes.Buffer{}
 	testUI := ui.NewWithWriter(buf)
 
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
-	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
-		"systemd-escape --path --suffix=mount /mnt/nas-media": "mnt-nas\\x2dmedia.mount\n",
-	}}
-	nfs.runner = fakeRunner
-
-	// Test creating mount unit - this will fail due to permissions
-	// but we're mainly testing the logic flow
-	host := "192.168.1.10"
-	export := "/mnt/storage/media"
-	mountPoint := "/mnt/nas-media"
-
-	// The function will fail because we can't write to /etc/systemd/system
-	// but that's expected in a test environment
-	err := nfs.CreateSystemdMountUnit(host, export, mountPoint)
-	if err == nil {
-		t.Skip("Test skipped: requires root access to write systemd units")
+	// Create a fake package manager where nfs-utils is installed
+	fakePackages := &fakePackageManager{
+		installedPackages: map[string]bool{
+			"nfs-utils": true,
+		},
 	}
 
-	// Verify error is about permissions
-	if !strings.Contains(err.Error(), "failed to write mount unit") {
-		t.Logf("Expected permission error, got: %v", err)
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, fakePackages)
+
+	err := nfs.CheckNFSUtils()
+	if err != nil {
+		t.Errorf("CheckNFSUtils() returned error when nfs-utils is installed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "nfs-utils package is installed") {
+		t.Errorf("Expected success message, got: %s", output)
 	}
 }
 
-func TestPathToUnitName(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"/mnt/nas-media", "mnt-nas\\x2dmedia.mount"},
-		{"/mnt/nas-nextcloud", "mnt-nas\\x2dnextcloud.mount"},
-		{"/srv/data", "srv-data.mount"},
-		{"/mnt/foo/bar/baz", "mnt-foo-bar-baz.mount"},
-		{"/mnt/My Media", "mnt-My\\x20Media.mount"},
+func TestCheckNFSUtilsWhenNotInstalled(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
+	fs := system.NewFileSystem()
+	network := system.NewNetwork()
+	markers := config.NewMarkers(tmpDir)
+	buf := &bytes.Buffer{}
+	testUI := ui.NewWithWriter(buf)
+
+	// Create a fake package manager where nfs-utils is not installed
+	fakePackages := &fakePackageManager{
+		installedPackages: map[string]bool{
+			"nfs-utils": false,
+		},
 	}
 
-	fakeRunner := &fakeCommandRunner{commandOutputs: map[string]string{
-		"systemd-escape --path --suffix=mount /mnt/nas-media":     "mnt-nas\\x2dmedia.mount\n",
-		"systemd-escape --path --suffix=mount /mnt/nas-nextcloud": "mnt-nas\\x2dnextcloud.mount\n",
-		"systemd-escape --path --suffix=mount /srv/data":          "srv-data.mount\n",
-		"systemd-escape --path --suffix=mount /mnt/foo/bar/baz":   "mnt-foo-bar-baz.mount\n",
-		"systemd-escape --path --suffix=mount /mnt/My Media":      "mnt-My\\x20Media.mount\n",
-	}}
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, fakePackages)
 
-	for _, tt := range tests {
-		result, err := pathToUnitName(fakeRunner, tt.input)
-		if err != nil {
-			t.Fatalf("pathToUnitName(%q) returned error: %v", tt.input, err)
-		}
-		if result != tt.expected {
-			t.Errorf("pathToUnitName(%q) = %q, want %q", tt.input, result, tt.expected)
-		}
+	err := nfs.CheckNFSUtils()
+	if err == nil {
+		t.Error("CheckNFSUtils() should return error when nfs-utils is not installed")
+	}
+
+	if !strings.Contains(err.Error(), "nfs-utils package is not installed") {
+		t.Errorf("Expected error about nfs-utils not installed, got: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "rpm-ostree install nfs-utils") {
+		t.Errorf("Expected installation instructions, got: %s", output)
+	}
+}
+
+func TestCheckNFSUtilsWhenCheckFails(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := config.New(filepath.Join(tmpDir, "config.conf"))
+	fs := system.NewFileSystem()
+	network := system.NewNetwork()
+	markers := config.NewMarkers(tmpDir)
+	buf := &bytes.Buffer{}
+	testUI := ui.NewWithWriter(buf)
+
+	// Create a fake package manager that returns an error when checking
+	fakePackages := &fakePackageManager{
+		checkError: fmt.Errorf("rpm command failed"),
+	}
+
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, fakePackages)
+
+	err := nfs.CheckNFSUtils()
+	// When check fails, the function should return nil and proceed with a warning
+	if err != nil {
+		t.Errorf("CheckNFSUtils() should return nil when package check fails, got: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "Could not verify nfs-utils package") {
+		t.Errorf("Expected warning about unable to verify package, got: %s", output)
+	}
+	if !strings.Contains(output, "Proceeding anyway") {
+		t.Errorf("Expected message about proceeding anyway, got: %s", output)
 	}
 }

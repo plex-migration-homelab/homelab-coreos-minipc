@@ -57,12 +57,13 @@ func TestDirectorySetupNew(t *testing.T) {
 func TestNFSConfiguratorNew(t *testing.T) {
 	fs := system.NewFileSystem()
 	network := system.NewNetwork()
+	packages := system.NewPackageManager()
 	testUI := ui.New()
 	tmpDir := t.TempDir()
 	markers := config.NewMarkers(tmpDir)
 	cfg := config.New(filepath.Join(tmpDir, "test.conf"))
 
-	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers)
+	nfs := NewNFSConfigurator(fs, network, cfg, testUI, markers, packages)
 	if nfs == nil {
 		t.Fatal("Expected non-nil NFSConfigurator")
 	}
