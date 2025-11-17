@@ -12,10 +12,11 @@ const (
 	KeyContainersBase = "CONTAINERS_BASE" // Base directory for container services (/srv/containers)
 
 	// NFS configuration
-	KeyNFSServer     = "NFS_SERVER"
-	KeyNFSExport     = "NFS_EXPORT"
-	KeyNFSMountPoint = "NFS_MOUNT_POINT"
-	KeyNFSFstabPath  = "NFS_FSTAB_PATH"
+	KeyNFSServer       = "NFS_SERVER"
+	KeyNFSExport       = "NFS_EXPORT"
+	KeyNFSMountPoint   = "NFS_MOUNT_POINT"
+	KeyNFSFstabPath    = "NFS_FSTAB_PATH"
+	KeyNFSMountOptions = "NFS_MOUNT_OPTIONS"
 
 	// WireGuard configuration
 	KeyWGInterface   = "WG_INTERFACE"

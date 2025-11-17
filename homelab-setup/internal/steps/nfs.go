@@ -43,7 +43,7 @@ func NewNFSConfigurator(fs *system.FileSystem, network *system.Network, cfg *con
 }
 
 func (n *NFSConfigurator) getFstabPath() string {
-	path := n.config.GetOrDefault("NFS_FSTAB_PATH", "/etc/fstab")
+	path := n.config.GetOrDefault(config.KeyNFSFstabPath, "/etc/fstab")
 	if path == "" {
 		return "/etc/fstab"
 	}
@@ -295,7 +295,9 @@ func (n *NFSConfigurator) CreateMountPoint(mountPoint string) error {
 // using simple string replacement (no systemd-escape).
 // Example: "/mnt/nas-media" -> "mnt-nas-media.mount"
 func mountPointToUnitName(mountPoint string) string {
-	cleanedPath := filepath.Clean(mountPoint)
+	// Trim leading/trailing whitespace first
+	cleanedPath := strings.TrimSpace(mountPoint)
+	cleanedPath = filepath.Clean(cleanedPath)
 
 	// Remove trailing path separator (but keep root "/")
 	if len(cleanedPath) > 1 && strings.HasSuffix(cleanedPath, string(filepath.Separator)) {
@@ -317,7 +319,7 @@ func mountPointToUnitName(mountPoint string) string {
 
 // getNFSMountOptions returns the NFS mount options from config or a default
 func (n *NFSConfigurator) getNFSMountOptions() string {
-	options := n.config.GetOrDefault("NFS_MOUNT_OPTIONS", "")
+	options := n.config.GetOrDefault(config.KeyNFSMountOptions, "")
 	if options == "" {
 		return "defaults,_netdev"
 	}
@@ -390,12 +392,6 @@ WantedBy=multi-user.target
 	n.ui.Success(fmt.Sprintf("Enabled mount unit: %s", unitName))
 
 	return nil
-}
-
-// pathToUnitName converts a mount point path to a systemd unit name
-// Example: /mnt/nas-media -> mnt-nas-media.mount
-func pathToUnitName(runner system.CommandRunner, mountPoint string) (string, error) {
-	return mountPointToUnitName(mountPoint), nil
 }
 
 // AddToFstab adds NFS mount to /etc/fstab (deprecated, kept for compatibility)
