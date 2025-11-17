@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/common"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
@@ -29,103 +28,82 @@ func NewDirectorySetup(fs *system.FileSystem, cfg *config.Config, ui *ui.UI, mar
 	}
 }
 
-// PromptForBaseDir prompts for the base directory
-func (d *DirectorySetup) PromptForBaseDir() (string, error) {
-	d.ui.Info("The base directory will contain all homelab services and data")
-	d.ui.Info("Recommended locations: /mnt/homelab, /srv/homelab, or /var/homelab")
-	d.ui.Print("")
-
-	// Check if already configured
-	existingBaseDir := d.config.GetOrDefault("HOMELAB_BASE_DIR", "")
-	if existingBaseDir != "" {
-		d.ui.Infof("Previously configured: %s", existingBaseDir)
-		useExisting, err := d.ui.PromptYesNo("Use this directory?", true)
-		if err != nil {
-			return "", fmt.Errorf("failed to prompt: %w", err)
-		}
-		if useExisting {
-			return existingBaseDir, nil
-		}
-	}
-
-	// Prompt for base directory
-	baseDir, err := d.ui.PromptInput("Enter base directory path", "/mnt/homelab")
-	if err != nil {
-		return "", fmt.Errorf("failed to prompt for base directory: %w", err)
-	}
-
-	// Validate path
-	if err := common.ValidatePath(baseDir); err != nil {
-		return "", fmt.Errorf("invalid path: %w", err)
-	}
-
-	return baseDir, nil
-}
-
 // CreateBaseStructure creates the base directory structure
 func (d *DirectorySetup) CreateBaseStructure(baseDir, owner string) error {
-	d.ui.Infof("Creating base directory structure in %s...", baseDir)
+	d.ui.Infof("Creating container service directories in %s...", baseDir)
 	d.ui.Print("")
 
-	// Define base structure
-	baseDirs := []struct {
-		path        string
+	// Define container service directories (media, web, cloud)
+	serviceDirs := []struct {
+		name        string
 		description string
 	}{
-		{baseDir, "Base homelab directory"},
-		{filepath.Join(baseDir, "config"), "Service configurations"},
-		{filepath.Join(baseDir, "data"), "Service data"},
-		{filepath.Join(baseDir, "compose"), "Docker Compose files"},
-		{filepath.Join(baseDir, "services"), "Individual service directories"},
-		{filepath.Join(baseDir, "appdata"), "Application data"},
+		{"media", "Plex, Jellyfin, Tautulli"},
+		{"web", "Overseerr, Wizarr, Organizr, Homepage"},
+		{"cloud", "Nextcloud, Immich, Collabora"},
 	}
 
-	// Create each directory
-	for _, dir := range baseDirs {
-		d.ui.Infof("Creating %s - %s", dir.path, dir.description)
+	// Create base containers directory
+	if err := d.fs.EnsureDirectory(baseDir, owner, 0755); err != nil {
+		return fmt.Errorf("failed to create base directory %s: %w", baseDir, err)
+	}
+	d.ui.Successf("  ✓ Created %s", baseDir)
 
-		if err := d.fs.EnsureDirectory(dir.path, owner, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dir.path, err)
+	// Create each service directory
+	for _, svc := range serviceDirs {
+		svcPath := filepath.Join(baseDir, svc.name)
+		d.ui.Infof("Creating %s - %s", svcPath, svc.description)
+
+		if err := d.fs.EnsureDirectory(svcPath, owner, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", svcPath, err)
 		}
 
-		d.ui.Successf("  ✓ Created %s", dir.path)
+		d.ui.Successf("  ✓ Created %s/", svc.name)
 	}
 
 	return nil
 }
 
-// CreateServiceDirs creates directories for individual services
-func (d *DirectorySetup) CreateServiceDirs(baseDir, owner string, services []string) error {
-	if len(services) == 0 {
-		d.ui.Info("No services specified, skipping service directory creation")
-		return nil
+// CreateAppdataDirs creates application data directories
+func (d *DirectorySetup) CreateAppdataDirs(appdataBase, owner string) error {
+	d.ui.Print("")
+	d.ui.Infof("Creating application data directories in %s...", appdataBase)
+
+	// Define appdata directories for each service
+	appdataDirs := []string{
+		"plex",
+		"jellyfin",
+		"tautulli",
+		"overseerr",
+		"wizarr",
+		"organizr",
+		"homepage",
+		"nextcloud",
+		"nextcloud-db",
+		"nextcloud-redis",
+		"collabora",
+		"immich",
+		"immich-db",
+		"immich-redis",
+		"immich-ml",
 	}
 
-	d.ui.Print("")
-	d.ui.Infof("Creating service directories...")
+	// Create base appdata directory
+	if err := d.fs.EnsureDirectory(appdataBase, owner, 0755); err != nil {
+		return fmt.Errorf("failed to create appdata base directory %s: %w", appdataBase, err)
+	}
+	d.ui.Successf("  ✓ Created %s", appdataBase)
 
-	servicesDir := filepath.Join(baseDir, "services")
-
-	for _, service := range services {
-		serviceDir := filepath.Join(servicesDir, service)
-		d.ui.Infof("Creating %s", serviceDir)
+	// Create each appdata directory
+	for _, service := range appdataDirs {
+		serviceDir := filepath.Join(appdataBase, service)
 
 		if err := d.fs.EnsureDirectory(serviceDir, owner, 0755); err != nil {
-			return fmt.Errorf("failed to create service directory %s: %w", serviceDir, err)
+			return fmt.Errorf("failed to create appdata directory %s: %w", serviceDir, err)
 		}
-
-		// Create common subdirectories for each service
-		subdirs := []string{"config", "data"}
-		for _, subdir := range subdirs {
-			subdirPath := filepath.Join(serviceDir, subdir)
-			if err := d.fs.EnsureDirectory(subdirPath, owner, 0755); err != nil {
-				return fmt.Errorf("failed to create subdirectory %s: %w", subdirPath, err)
-			}
-		}
-
-		d.ui.Successf("  ✓ Created %s with subdirectories", serviceDir)
 	}
 
+	d.ui.Successf("  ✓ Created %d appdata directories", len(appdataDirs))
 	return nil
 }
 
@@ -165,57 +143,81 @@ func (d *DirectorySetup) CreateNFSMountPoints() error {
 }
 
 // VerifyStructure verifies the directory structure was created correctly
-func (d *DirectorySetup) VerifyStructure(baseDir string) error {
+func (d *DirectorySetup) VerifyStructure(containersBase, appdataBase string) error {
 	d.ui.Print("")
 	d.ui.Info("Verifying directory structure...")
 
-	// Check base directories
-	requiredDirs := []string{
-		baseDir,
-		filepath.Join(baseDir, "config"),
-		filepath.Join(baseDir, "data"),
-		filepath.Join(baseDir, "compose"),
-		filepath.Join(baseDir, "services"),
-		filepath.Join(baseDir, "appdata"),
-	}
-
-	for _, dir := range requiredDirs {
-		exists, err := d.fs.DirectoryExists(dir)
+	// Check container service directories
+	serviceDirs := []string{"media", "web", "cloud"}
+	for _, service := range serviceDirs {
+		serviceDir := filepath.Join(containersBase, service)
+		exists, err := d.fs.DirectoryExists(serviceDir)
 		if err != nil {
-			return fmt.Errorf("failed to check directory %s: %w", dir, err)
+			return fmt.Errorf("failed to check directory %s: %w", serviceDir, err)
 		}
 
 		if !exists {
-			return fmt.Errorf("directory %s was not created", dir)
+			return fmt.Errorf("directory %s was not created", serviceDir)
 		}
 
-		d.ui.Successf("  ✓ %s exists", dir)
+		d.ui.Successf("  ✓ %s exists", serviceDir)
+	}
+
+	// Check appdata base directory
+	exists, err := d.fs.DirectoryExists(appdataBase)
+	if err != nil {
+		return fmt.Errorf("failed to check appdata directory: %w", err)
+	}
+	if !exists {
+		return fmt.Errorf("appdata directory %s was not created", appdataBase)
+	}
+	d.ui.Successf("  ✓ %s exists", appdataBase)
+
+	// Count appdata subdirectories
+	entries, err := os.ReadDir(appdataBase)
+	if err == nil {
+		count := 0
+		for _, entry := range entries {
+			if entry.IsDir() {
+				count++
+			}
+		}
+		d.ui.Successf("  ✓ Found %d appdata subdirectories", count)
 	}
 
 	return nil
 }
 
 // DisplayStructure displays the created directory structure
-func (d *DirectorySetup) DisplayStructure(baseDir string) error {
+func (d *DirectorySetup) DisplayStructure(containersBase, appdataBase string) error {
 	d.ui.Print("")
 	d.ui.Info("Directory structure created:")
 	d.ui.Print("")
-	d.ui.Printf("%s/", baseDir)
-	d.ui.Print("  ├── config/     (service configurations)")
-	d.ui.Print("  ├── data/       (service data)")
-	d.ui.Print("  ├── compose/    (docker compose files)")
-	d.ui.Print("  └── services/   (individual service directories)")
 
-	// Check if services were created
-	servicesDir := filepath.Join(baseDir, "services")
-	entries, err := os.ReadDir(servicesDir)
+	d.ui.Info("Container Services:")
+	d.ui.Printf("%s/", containersBase)
+	d.ui.Print("  ├── media/       (compose.yml, .env)")
+	d.ui.Print("  ├── web/         (compose.yml, .env)")
+	d.ui.Print("  └── cloud/       (compose.yml, .env)")
+
+	d.ui.Print("")
+	d.ui.Info("Application Data:")
+	d.ui.Printf("%s/", appdataBase)
+
+	// Show sample appdata directories
+	entries, err := os.ReadDir(appdataBase)
 	if err == nil && len(entries) > 0 {
-		d.ui.Print("")
-		d.ui.Info("Service directories:")
+		count := 0
 		for _, entry := range entries {
 			if entry.IsDir() {
-				d.ui.Printf("  - %s/", entry.Name())
+				if count < 5 {
+					d.ui.Printf("  ├── %s/", entry.Name())
+				}
+				count++
 			}
+		}
+		if count > 5 {
+			d.ui.Printf("  └── ... and %d more", count-5)
 		}
 	}
 
@@ -248,62 +250,51 @@ func (d *DirectorySetup) Run() error {
 	}
 
 	d.ui.Infof("Using homelab user: %s", homelabUser)
+	d.ui.Print("")
 
-	// Prompt for base directory
-	d.ui.Step("Select Base Directory")
-	baseDir, err := d.PromptForBaseDir()
-	if err != nil {
-		return fmt.Errorf("failed to get base directory: %w", err)
-	}
+	// Prompt for containers base directory
+	d.ui.Step("Container Services Directory")
+	d.ui.Info("This directory will contain compose files organized by service type")
+	d.ui.Info("Structure: /srv/containers/{media,web,cloud}/")
+	d.ui.Print("")
 
-	// Create base structure
-	d.ui.Step("Creating Base Directory Structure")
-	if err := d.CreateBaseStructure(baseDir, homelabUser); err != nil {
-		return fmt.Errorf("failed to create base structure: %w", err)
-	}
+	existingContainersBase := d.config.GetOrDefault("CONTAINERS_BASE", "")
+	var containersBase string
 
-	// Ask if they want to create service directories
-	d.ui.Step("Service Directories")
-	createServices, err := d.ui.PromptYesNo("Create directories for specific services?", false)
-	if err != nil {
-		return fmt.Errorf("failed to prompt for service creation: %w", err)
-	}
-
-	if createServices {
-		// Define common services
-		commonServices := []string{
-			"plex",
-			"jellyfin",
-			"sonarr",
-			"radarr",
-			"lidarr",
-			"prowlarr",
-			"qbittorrent",
-			"overseerr",
-			"nextcloud",
-			"immich",
-			"caddy",
-			"adguard",
-		}
-
-		d.ui.Info("Select services to create directories for:")
-		serviceIndices, err := d.ui.PromptMultiSelect("Services", commonServices)
+	if existingContainersBase != "" {
+		d.ui.Infof("Previously configured: %s", existingContainersBase)
+		useExisting, err := d.ui.PromptYesNo("Use this directory?", true)
 		if err != nil {
-			return fmt.Errorf("failed to prompt for services: %w", err)
+			return fmt.Errorf("failed to prompt: %w", err)
 		}
+		if useExisting {
+			containersBase = existingContainersBase
+		}
+	}
 
-		selectedServices := []string{}
-		for _, idx := range serviceIndices {
-			if idx >= 0 && idx < len(commonServices) {
-				selectedServices = append(selectedServices, commonServices[idx])
-			}
+	if containersBase == "" {
+		input, err := d.ui.PromptInput("Enter containers base directory", "/srv/containers")
+		if err != nil {
+			return fmt.Errorf("failed to prompt for containers directory: %w", err)
 		}
+		containersBase = input
+	}
 
-		if len(selectedServices) > 0 {
-			if err := d.CreateServiceDirs(baseDir, homelabUser, selectedServices); err != nil {
-				return fmt.Errorf("failed to create service directories: %w", err)
-			}
-		}
+	// Appdata directory (fixed location per documentation)
+	appdataBase := "/var/lib/containers/appdata"
+	d.ui.Print("")
+	d.ui.Info("Application data will be stored in: " + appdataBase)
+
+	// Create container service directories
+	d.ui.Step("Creating Container Service Directories")
+	if err := d.CreateBaseStructure(containersBase, homelabUser); err != nil {
+		return fmt.Errorf("failed to create container structure: %w", err)
+	}
+
+	// Create appdata directories
+	d.ui.Step("Creating Application Data Directories")
+	if err := d.CreateAppdataDirs(appdataBase, homelabUser); err != nil {
+		return fmt.Errorf("failed to create appdata directories: %w", err)
 	}
 
 	// Create NFS mount points if needed
@@ -315,37 +306,34 @@ func (d *DirectorySetup) Run() error {
 
 	// Verify structure
 	d.ui.Step("Verification")
-	if err := d.VerifyStructure(baseDir); err != nil {
+	if err := d.VerifyStructure(containersBase, appdataBase); err != nil {
 		return fmt.Errorf("directory structure verification failed: %w", err)
 	}
 
 	// Display structure
-	if err := d.DisplayStructure(baseDir); err != nil {
+	if err := d.DisplayStructure(containersBase, appdataBase); err != nil {
 		d.ui.Warning(fmt.Sprintf("Failed to display structure: %v", err))
 	}
 
 	// Save configuration
 	d.ui.Step("Saving Configuration")
-	if err := d.config.Set("HOMELAB_BASE_DIR", baseDir); err != nil {
-		return fmt.Errorf("failed to save base directory: %w", err)
-	}
-	if err := d.config.Set("CONTAINERS_BASE", baseDir); err != nil {
+	if err := d.config.Set("CONTAINERS_BASE", containersBase); err != nil {
 		return fmt.Errorf("failed to save containers base directory: %w", err)
 	}
-	appdataPath := filepath.Join(baseDir, "appdata")
-	// Use APPDATA_BASE as per architecture document (go-rewrite-plan.md)
-	if err := d.config.Set("APPDATA_BASE", appdataPath); err != nil {
+	// Use APPDATA_BASE as per architecture document
+	if err := d.config.Set("APPDATA_BASE", appdataBase); err != nil {
 		return fmt.Errorf("failed to save appdata base: %w", err)
 	}
-	// Also set APPDATA_PATH for backwards compatibility with legacy configs
-	if err := d.config.Set("APPDATA_PATH", appdataPath); err != nil {
+	// Also set APPDATA_PATH for backwards compatibility with legacy configs and .env files
+	if err := d.config.Set("APPDATA_PATH", appdataBase); err != nil {
 		return fmt.Errorf("failed to save appdata path: %w", err)
 	}
 
 	d.ui.Print("")
 	d.ui.Separator()
 	d.ui.Success("✓ Directory structure created successfully")
-	d.ui.Infof("Base directory: %s", baseDir)
+	d.ui.Infof("Container services: %s", containersBase)
+	d.ui.Infof("Application data: %s", appdataBase)
 
 	// Create completion marker
 	if err := d.markers.Create(directoryCompletionMarker); err != nil {

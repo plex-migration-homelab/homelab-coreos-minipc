@@ -179,7 +179,7 @@ func TestGenerateEnvContent_Media(t *testing.T) {
 
 func TestGetServiceInfo(t *testing.T) {
 	cfg := newTestConfig(t)
-	if err := cfg.Set("HOMELAB_BASE_DIR", "/test/containers"); err != nil {
+	if err := cfg.Set("CONTAINERS_BASE", "/test/containers"); err != nil {
 		t.Fatalf("Set() failed: %v", err)
 	}
 
@@ -207,31 +207,31 @@ func TestGetServiceInfo(t *testing.T) {
 	}
 }
 
-func TestContainerSetupServiceDirectoryUsesHomelabBase(t *testing.T) {
+func TestContainerSetupServiceDirectory(t *testing.T) {
 	cfg := newTestConfig(t)
-	if err := cfg.Set("HOMELAB_BASE_DIR", "/mnt/homelab"); err != nil {
+	if err := cfg.Set("CONTAINERS_BASE", "/srv/containers"); err != nil {
 		t.Fatalf("Set() failed: %v", err)
 	}
 
 	setup := NewContainerSetup(system.NewContainerManager(), system.NewFileSystem(), cfg, ui.New(), config.NewMarkers(""))
 
 	dir := setup.serviceDirectory("media")
-	expected := filepath.Join("/mnt/homelab", "media")
+	expected := filepath.Join("/srv/containers", "media")
 	if dir != expected {
 		t.Fatalf("expected %s, got %s", expected, dir)
 	}
 }
 
-func TestContainerSetupServiceDirectoryFallback(t *testing.T) {
+func TestContainerSetupServiceDirectoryCustomPath(t *testing.T) {
 	cfg := newTestConfig(t)
-	if err := cfg.Set("CONTAINERS_BASE", "/legacy"); err != nil {
+	if err := cfg.Set("CONTAINERS_BASE", "/custom/path"); err != nil {
 		t.Fatalf("Set() failed: %v", err)
 	}
 
 	setup := NewContainerSetup(system.NewContainerManager(), system.NewFileSystem(), cfg, ui.New(), config.NewMarkers(""))
 
 	dir := setup.serviceDirectory("web")
-	expected := filepath.Join("/legacy", "web")
+	expected := filepath.Join("/custom/path", "web")
 	if dir != expected {
 		t.Fatalf("expected %s, got %s", expected, dir)
 	}

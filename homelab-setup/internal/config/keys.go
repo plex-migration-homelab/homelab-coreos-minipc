@@ -9,8 +9,7 @@ const (
 	KeyHomelabTimezone = "HOMELAB_TIMEZONE"
 
 	// Directory configuration
-	KeyHomelabBaseDir = "HOMELAB_BASE_DIR"
-	KeyContainersBase = "CONTAINERS_BASE" // Legacy, prefer HOMELAB_BASE_DIR
+	KeyContainersBase = "CONTAINERS_BASE" // Base directory for container services (/srv/containers)
 
 	// NFS configuration
 	KeyNFSServer     = "NFS_SERVER"
@@ -39,7 +38,7 @@ const (
 
 // Default values for configuration keys
 var Defaults = map[string]string{
-	KeyHomelabBaseDir:     "/srv/containers",
+	KeyContainersBase:     "/srv/containers",
 	KeyContainerRuntime:   "podman",
 	KeyNFSMountPoint:      "/mnt/nas",
 	KeyNFSFstabPath:       "/etc/fstab",

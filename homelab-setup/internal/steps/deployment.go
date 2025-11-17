@@ -25,12 +25,8 @@ type Deployment struct {
 }
 
 // getServiceBaseDir resolves the base directory for service deployments.
-// HOMELAB_BASE_DIR is treated as the source of truth with a fallback to the
-// legacy CONTAINERS_BASE key for backward compatibility.
+// Uses CONTAINERS_BASE which should point to /srv/containers
 func (d *Deployment) getServiceBaseDir() string {
-	if base := d.config.GetOrDefault("HOMELAB_BASE_DIR", ""); base != "" {
-		return base
-	}
 	return d.config.GetOrDefault("CONTAINERS_BASE", "/srv/containers")
 }
 
