@@ -93,7 +93,7 @@ func (m *Menu) displayMenu() {
 	cyan.Println(strings.Repeat("-", 70))
 	fmt.Println()
 
-	steps := m.ctx.Steps.GetAllSteps()
+	steps := GetAllSteps()
 	red := color.New(color.FgRed)
 
 	for i, step := range steps {
@@ -175,7 +175,7 @@ func (m *Menu) runAllSteps(skipWireGuard bool) error {
 		m.ctx.UI.Info("WireGuard will be skipped")
 	}
 
-	err := m.ctx.Steps.RunAll(skipWireGuard)
+	err := RunAll(m.ctx, skipWireGuard)
 
 	fmt.Println()
 	m.ctx.UI.Info("Press Enter to return to menu...")
@@ -186,7 +186,7 @@ func (m *Menu) runAllSteps(skipWireGuard bool) error {
 
 // runIndividualStep runs a single setup step
 func (m *Menu) runIndividualStep(choice string) error {
-	steps := m.ctx.Steps.GetAllSteps()
+	steps := GetAllSteps()
 	stepIndex := int(choice[0] - '0')
 
 	if stepIndex < 0 || stepIndex >= len(steps) {
@@ -198,7 +198,7 @@ func (m *Menu) runIndividualStep(choice string) error {
 	clearScreen()
 	m.ctx.UI.Header(fmt.Sprintf("Step %d: %s", stepIndex, step.Name))
 
-	err := m.ctx.Steps.RunStep(step.ShortName)
+	err := RunStep(m.ctx, step.ShortName)
 
 	fmt.Println()
 	m.ctx.UI.Info("Press Enter to return to menu...")
@@ -225,7 +225,7 @@ func (m *Menu) runTroubleshoot() error {
 func (m *Menu) addWireGuardPeer() error {
 	clearScreen()
 	m.ctx.UI.Header("Add WireGuard Peer")
-	err := m.ctx.Steps.AddWireGuardPeer(nil)
+	err := AddWireGuardPeer(m.ctx, nil)
 	m.ctx.UI.Print("")
 	m.ctx.UI.Info("Press Enter to return to menu...")
 	_, _ = fmt.Scanln()
@@ -241,11 +241,11 @@ func (m *Menu) showStatus() error {
 	m.ctx.UI.Info("Completed Steps:")
 	fmt.Println()
 
-	steps := m.ctx.Steps.GetAllSteps()
+	steps := GetAllSteps()
 	completedCount := 0
 
 	for i, step := range steps {
-		if m.ctx.Steps.IsStepComplete(step.MarkerName) {
+		if IsStepComplete(m.ctx.Markers, step.MarkerName) {
 			m.ctx.UI.Successf("[%d] ✓ %s", i, step.Name)
 			completedCount++
 		} else {
