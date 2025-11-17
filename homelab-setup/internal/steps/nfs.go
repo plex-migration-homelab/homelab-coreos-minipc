@@ -211,7 +211,7 @@ func (n *NFSConfigurator) CreateSystemdMountUnit(host, export, mountPoint string
 	content := fmt.Sprintf(`[Unit]
 Description=NFS mount for %s
 After=network-online.target
-Requires=network.target
+Requires=network-online.target
 Wants=network-online.target
 
 [Mount]
