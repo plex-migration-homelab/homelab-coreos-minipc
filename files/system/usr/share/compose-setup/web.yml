@@ -5,21 +5,19 @@ version: '3.9'
 
 services:
   nginxproxymanager:
-    image: jc21/nginx-proxy-manager:latest
+    image: lscr.io/linuxserver/nginx-proxy-manager:latest
     container_name: nginxproxymanager
     restart: unless-stopped
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
-      - DISABLE_IPV6=true
     ports:
       - "80:80"     # HTTP
       - "443:443"   # HTTPS
       - "81:81"     # Admin Web Interface
     volumes:
-      - ${APPDATA_PATH}/nginxproxymanager/data:/data
-      - ${APPDATA_PATH}/nginxproxymanager/letsencrypt:/etc/letsencrypt
+      - ${APPDATA_PATH}/nginxproxymanager:/config
     networks:
       - web
     labels:
