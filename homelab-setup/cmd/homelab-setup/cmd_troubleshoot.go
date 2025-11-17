@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/cli"
+	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 )
 
 var troubleshootCmd = &cobra.Command{
@@ -47,6 +48,8 @@ func runTroubleshoot(cmd *cobra.Command, args []string) error {
 	if runAll || troubleshootServices {
 		checkSystemInfo(ctx)
 		checkConfiguration(ctx)
+		checkPackages(ctx)
+		checkHardware(ctx)
 		checkServices(ctx)
 		checkContainers(ctx)
 	}
@@ -138,10 +141,22 @@ func checkConfiguration(ctx *cli.SetupContext) {
 		// Show key configurations
 		ctx.UI.Print("")
 		ctx.UI.Info("Key configurations:")
-		keyConfigs := []string{"SETUP_USER", "ENV_PUID", "ENV_PGID", "ENV_TZ", "NFS_SERVER", "CONTAINERS_BASE", "APPDATA_BASE"}
-		for _, key := range keyConfigs {
-			if value := ctx.Config.GetOrDefault(key, ""); value != "" {
-				ctx.UI.Infof("  %s=%s", key, value)
+		keyConfigs := []struct {
+			key   string
+			label string
+		}{
+			{config.KeyHomelabUser, "User"},
+			{config.KeyHomelabUID, "UID"},
+			{config.KeyHomelabGID, "GID"},
+			{config.KeyHomelabTimezone, "Timezone"},
+			{config.KeyNFSServer, "NFS Server"},
+			{config.KeyNFSMountPoint, "NFS Mount"},
+			{config.KeyContainersBase, "Containers Base"},
+			{config.KeyContainerRuntime, "Runtime"},
+		}
+		for _, cfg := range keyConfigs {
+			if value := ctx.Config.GetOrDefault(cfg.key, ""); value != "" {
+				ctx.UI.Infof("  %-15s: %s", cfg.label, value)
 			}
 		}
 	} else {
@@ -164,6 +179,121 @@ func checkConfiguration(ctx *cli.SetupContext) {
 				ctx.UI.Successf("  ✓ %s", marker)
 			}
 		}
+	}
+
+	ctx.UI.Print("")
+}
+
+// ============================================================================
+// Package Validation
+// ============================================================================
+
+func checkPackages(ctx *cli.SetupContext) {
+	ctx.UI.Header("Required Packages")
+
+	requiredPackages := []struct {
+		name        string
+		description string
+	}{
+		{"podman", "Container runtime"},
+		{"wireguard-tools", "VPN connectivity"},
+		{"nfs-utils", "NFS client"},
+		{"intel-media-driver", "Intel QuickSync (hardware transcoding)"},
+		{"libva", "Video Acceleration API"},
+		{"ffmpeg", "Media processing"},
+	}
+
+	allInstalled := true
+	for _, pkg := range requiredPackages {
+		// Check if package is installed via rpm-ostree or dnf
+		checkCmd := exec.Command("rpm", "-q", pkg.name)
+		if err := checkCmd.Run(); err == nil {
+			ctx.UI.Successf("✓ %s (%s)", pkg.name, pkg.description)
+		} else {
+			ctx.UI.Errorf("✗ %s (%s) - NOT INSTALLED", pkg.name, pkg.description)
+			allInstalled = false
+		}
+	}
+
+	if !allInstalled {
+		ctx.UI.Print("")
+		ctx.UI.Warning("Missing packages detected!")
+		ctx.UI.Info("Install with: sudo rpm-ostree install <package-name>")
+		ctx.UI.Info("Then reboot to apply changes")
+	}
+
+	ctx.UI.Print("")
+}
+
+// ============================================================================
+// Hardware Validation
+// ============================================================================
+
+func checkHardware(ctx *cli.SetupContext) {
+	ctx.UI.Header("Hardware Status")
+
+	// Check for Intel GPU (for QuickSync hardware transcoding)
+	ctx.UI.Info("Intel GPU (QuickSync):")
+	if _, err := os.Stat("/dev/dri/renderD128"); err == nil {
+		ctx.UI.Success("  ✓ GPU device found: /dev/dri/renderD128")
+
+		// Check if VAAPI is working
+		if _, err := exec.LookPath("vainfo"); err == nil {
+			vaCmd := exec.Command("vainfo")
+			if output, err := vaCmd.CombinedOutput(); err == nil {
+				// Check if we have hardware acceleration profiles
+				outputStr := string(output)
+				if strings.Contains(outputStr, "VAProfileH264") || strings.Contains(outputStr, "VAProfileHEVC") {
+					ctx.UI.Success("  ✓ Hardware acceleration available")
+
+					// Show supported profiles
+					lines := strings.Split(outputStr, "\n")
+					profiles := 0
+					for _, line := range lines {
+						if strings.Contains(line, "VAProfile") && !strings.Contains(line, "VAProfileNone") {
+							profiles++
+						}
+					}
+					ctx.UI.Infof("  ✓ %d encoding profiles detected", profiles)
+				} else {
+					ctx.UI.Warning("  ⚠ GPU found but no acceleration profiles detected")
+				}
+			} else {
+				ctx.UI.Warning("  ⚠ GPU found but vainfo failed")
+			}
+		} else {
+			ctx.UI.Warning("  ⚠ GPU found but vainfo not installed")
+			ctx.UI.Info("    Install with: sudo rpm-ostree install libva-utils")
+		}
+	} else {
+		ctx.UI.Error("  ✗ No Intel GPU device found")
+		ctx.UI.Info("    Hardware transcoding will not be available")
+		ctx.UI.Info("    Plex/Jellyfin will fall back to CPU transcoding")
+	}
+
+	// Check render group membership
+	ctx.UI.Print("")
+	ctx.UI.Info("GPU Permissions:")
+	username := ctx.Config.GetOrDefault(config.KeyHomelabUser, "")
+	if username != "" {
+		groupCmd := exec.Command("groups", username)
+		if output, err := groupCmd.Output(); err == nil {
+			groups := string(output)
+			if strings.Contains(groups, "render") {
+				ctx.UI.Successf("  ✓ User '%s' is in 'render' group", username)
+			} else {
+				ctx.UI.Errorf("  ✗ User '%s' is NOT in 'render' group", username)
+				ctx.UI.Info("    Add with: sudo usermod -aG render " + username)
+				ctx.UI.Info("    Then logout/login or reboot")
+			}
+			if strings.Contains(groups, "video") {
+				ctx.UI.Successf("  ✓ User '%s' is in 'video' group", username)
+			} else {
+				ctx.UI.Warningf("  ⚠ User '%s' is NOT in 'video' group (may be needed)", username)
+			}
+		}
+	} else {
+		ctx.UI.Warning("  ⚠ HOMELAB_USER not configured - cannot check group membership")
 	}
 
 	ctx.UI.Print("")
