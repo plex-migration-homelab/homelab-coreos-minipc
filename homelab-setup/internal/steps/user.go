@@ -14,17 +14,15 @@ const defaultTimezone = "America/Chicago"
 
 // UserConfigurator handles user and group configuration
 type UserConfigurator struct {
-	config  *config.Config
-	ui      *ui.UI
-	markers *config.Markers
+	config *config.Config
+	ui     *ui.UI
 }
 
 // NewUserConfigurator creates a new UserConfigurator instance
-func NewUserConfigurator(cfg *config.Config, ui *ui.UI, markers *config.Markers) *UserConfigurator {
+func NewUserConfigurator(cfg *config.Config, ui *ui.UI) *UserConfigurator {
 	return &UserConfigurator{
-		config:  cfg,
-		ui:      ui,
-		markers: markers,
+		config: cfg,
+		ui:     ui,
 	}
 }
 
@@ -292,7 +290,7 @@ const userCompletionMarker = "user-setup-complete"
 // Run executes the user configuration step
 func (u *UserConfigurator) Run() error {
 	// Check if already completed (and migrate legacy markers)
-	completed, err := ensureCanonicalMarker(u.markers, userCompletionMarker, "user-configured")
+	completed, err := ensureCanonicalMarker(u.config, userCompletionMarker, "user-configured")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
@@ -384,7 +382,7 @@ func (u *UserConfigurator) Run() error {
 	u.ui.Infof("Homelab user: %s (UID: %d, GID: %d)", username, uid, gid)
 
 	// Create completion marker
-	if err := u.markers.Create(userCompletionMarker); err != nil {
+	if err := u.config.MarkComplete(userCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

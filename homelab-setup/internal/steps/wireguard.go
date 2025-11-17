@@ -34,10 +34,9 @@ type WireGuardPeer struct {
 
 // WireGuardSetup handles WireGuard VPN setup
 type WireGuardSetup struct {
-	config  *config.Config
-	ui      *ui.UI
-	markers *config.Markers
-	keygen  WireGuardKeyGenerator
+	config *config.Config
+	ui     *ui.UI
+	keygen WireGuardKeyGenerator
 }
 
 // WireGuardKeyGenerator describes key generation/derivation helpers so the
@@ -149,12 +148,11 @@ func sanitizeConfigValue(value string) string {
 }
 
 // NewWireGuardSetup creates a new WireGuardSetup instance
-func NewWireGuardSetup(cfg *config.Config, ui *ui.UI, markers *config.Markers) *WireGuardSetup {
+func NewWireGuardSetup(cfg *config.Config, ui *ui.UI) *WireGuardSetup {
 	return &WireGuardSetup{
-		config:  cfg,
-		ui:      ui,
-		markers: markers,
-		keygen:  CommandKeyGenerator{},
+		config: cfg,
+		ui:     ui,
+		keygen: CommandKeyGenerator{},
 	}
 }
 
@@ -682,7 +680,7 @@ const wireGuardCompletionMarker = "wireguard-setup-complete"
 // Run executes the WireGuard setup step
 func (w *WireGuardSetup) Run() error {
 	// Check if already completed (and migrate legacy markers)
-	completed, err := ensureCanonicalMarker(w.markers, wireGuardCompletionMarker, "wireguard-configured", "wireguard-skipped")
+	completed, err := ensureCanonicalMarker(w.config, wireGuardCompletionMarker, "wireguard-configured", "wireguard-skipped")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
@@ -709,7 +707,7 @@ func (w *WireGuardSetup) Run() error {
 		if err := w.config.Set("WIREGUARD_ENABLED", "false"); err != nil {
 			return fmt.Errorf("failed to update WireGuard configuration: %w", err)
 		}
-		if err := w.markers.Create(wireGuardCompletionMarker); err != nil {
+		if err := w.config.MarkComplete(wireGuardCompletionMarker); err != nil {
 			return fmt.Errorf("failed to create completion marker: %w", err)
 		}
 		return nil
@@ -788,7 +786,7 @@ func (w *WireGuardSetup) Run() error {
 	w.ui.Infof("Port: %s", cfg.ListenPort)
 
 	// Create completion marker
-	if err := w.markers.Create(wireGuardCompletionMarker); err != nil {
+	if err := w.config.MarkComplete(wireGuardCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

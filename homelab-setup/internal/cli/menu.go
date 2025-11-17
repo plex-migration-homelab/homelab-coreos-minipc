@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
 )
 
 // ErrExit is returned when the user chooses to exit the menu
@@ -94,18 +93,12 @@ func (m *Menu) displayMenu() {
 	fmt.Println()
 
 	steps := GetAllSteps()
-	red := color.New(color.FgRed)
 
 	for i, step := range steps {
 		// Check step status
-		stepStatus, _ := m.ctx.Markers.GetStatus(step.MarkerName)
 		status := "  "
-
-		switch stepStatus {
-		case config.StepCompleted:
+		if m.ctx.Config.IsComplete(step.MarkerName) {
 			status = green.Sprint("✓")
-		case config.StepFailed:
-			status = red.Sprint("✗")
 		}
 
 		bold.Printf("  [%d] ", i)
@@ -245,7 +238,7 @@ func (m *Menu) showStatus() error {
 	completedCount := 0
 
 	for i, step := range steps {
-		if IsStepComplete(m.ctx.Markers, step.MarkerName) {
+		if IsStepComplete(m.ctx.Config, step.MarkerName) {
 			m.ctx.UI.Successf("[%d] ✓ %s", i, step.Name)
 			completedCount++
 		} else {
@@ -266,8 +259,9 @@ func (m *Menu) showStatus() error {
 	}
 
 	// Show marker directory
-	if _, err := os.Stat(m.ctx.Markers.Dir()); err == nil {
-		m.ctx.UI.Infof("Marker directory: %s", m.ctx.Markers.Dir())
+	markerDir := m.ctx.Config.MarkerDir()
+	if _, err := os.Stat(markerDir); err == nil {
+		m.ctx.UI.Infof("Marker directory: %s", markerDir)
 	}
 
 	fmt.Println()
@@ -299,7 +293,7 @@ func (m *Menu) resetSetup() error {
 		return nil
 	}
 
-	if err := m.ctx.Markers.RemoveAll(); err != nil {
+	if err := m.ctx.Config.ClearAllMarkers(); err != nil {
 		return fmt.Errorf("failed to remove markers: %w", err)
 	}
 

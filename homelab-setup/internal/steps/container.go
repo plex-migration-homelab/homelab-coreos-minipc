@@ -17,9 +17,8 @@ import (
 
 // ContainerSetup handles container stack setup and configuration
 type ContainerSetup struct {
-	config  *config.Config
-	ui      *ui.UI
-	markers *config.Markers
+	config *config.Config
+	ui     *ui.UI
 }
 
 // getContainersBase returns the base directory for container service files
@@ -34,11 +33,10 @@ func (c *ContainerSetup) serviceDirectory(serviceName string) string {
 }
 
 // NewContainerSetup creates a new ContainerSetup instance
-func NewContainerSetup(cfg *config.Config, ui *ui.UI, markers *config.Markers) *ContainerSetup {
+func NewContainerSetup(cfg *config.Config, ui *ui.UI) *ContainerSetup {
 	return &ContainerSetup{
-		config:  cfg,
-		ui:      ui,
-		markers: markers,
+		config: cfg,
+		ui:     ui,
 	}
 }
 
@@ -699,11 +697,7 @@ IMMICH_DB_DATABASE=%s
 // Run executes the container setup step
 func (c *ContainerSetup) Run() error {
 	// Check if already completed
-	exists, err := c.markers.Exists("container-setup-complete")
-	if err != nil {
-		return fmt.Errorf("failed to check marker: %w", err)
-	}
-	if exists {
+	if c.config.IsComplete("container-setup-complete") {
 		c.ui.Info("Container setup already completed (marker found)")
 		c.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/container-setup-complete")
 		return nil
@@ -766,7 +760,7 @@ func (c *ContainerSetup) Run() error {
 	c.ui.Infof("Configured %d stack(s): %s", len(selectedStacks), strings.Join(selectedStacks, ", "))
 
 	// Create completion marker
-	if err := c.markers.Create("container-setup-complete"); err != nil {
+	if err := c.config.MarkComplete("container-setup-complete"); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

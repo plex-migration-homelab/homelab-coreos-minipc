@@ -12,17 +12,15 @@ import (
 
 // DirectorySetup handles directory structure creation
 type DirectorySetup struct {
-	config  *config.Config
-	ui      *ui.UI
-	markers *config.Markers
+	config *config.Config
+	ui     *ui.UI
 }
 
 // NewDirectorySetup creates a new DirectorySetup instance
-func NewDirectorySetup(cfg *config.Config, ui *ui.UI, markers *config.Markers) *DirectorySetup {
+func NewDirectorySetup(cfg *config.Config, ui *ui.UI) *DirectorySetup {
 	return &DirectorySetup{
-		config:  cfg,
-		ui:      ui,
-		markers: markers,
+		config: cfg,
+		ui:     ui,
 	}
 }
 
@@ -264,7 +262,7 @@ const directoryCompletionMarker = "directory-setup-complete"
 // Run executes the directory setup step
 func (d *DirectorySetup) Run() error {
 	// Check if already completed (and migrate legacy markers)
-	completed, err := ensureCanonicalMarker(d.markers, directoryCompletionMarker, "directories-created")
+	completed, err := ensureCanonicalMarker(d.config, directoryCompletionMarker, "directories-created")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
@@ -377,7 +375,7 @@ func (d *DirectorySetup) Run() error {
 	d.ui.Infof("Application data: %s", appdataBase)
 
 	// Create completion marker
-	if err := d.markers.Create(directoryCompletionMarker); err != nil {
+	if err := d.config.MarkComplete(directoryCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

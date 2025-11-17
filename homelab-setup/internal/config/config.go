@@ -10,12 +10,13 @@ import (
 	"time"
 )
 
-// Config manages homelab setup configuration with thread-safe operations
+// Config manages homelab setup configuration and completion markers with thread-safe operations
 type Config struct {
-	filePath string
-	data     map[string]string
-	loaded   bool // Track if configuration has been loaded from disk
-	mu       sync.RWMutex
+	filePath  string
+	markerDir string
+	data      map[string]string
+	loaded    bool // Track if configuration has been loaded from disk
+	mu        sync.RWMutex
 }
 
 // ensureLoaded loads configuration data from disk once before read operations
@@ -28,17 +29,27 @@ func (c *Config) ensureLoaded() error {
 
 // New creates a new Config instance
 func New(filePath string) *Config {
+	var markerDir string
 	if filePath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			home = "/var/home/core" // Fallback for CoreOS
 		}
 		filePath = filepath.Join(home, ".homelab-setup.conf")
+		markerDir = filepath.Join(home, ".local", "homelab-setup")
+	} else {
+		// If custom config path provided, use adjacent directory for markers
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "/var/home/core"
+		}
+		markerDir = filepath.Join(home, ".local", "homelab-setup")
 	}
 
 	return &Config{
-		filePath: filePath,
-		data:     make(map[string]string),
+		filePath:  filePath,
+		markerDir: markerDir,
+		data:      make(map[string]string),
 	}
 }
 
@@ -233,4 +244,123 @@ func (c *Config) Delete(key string) error {
 // FilePath returns the configuration file path
 func (c *Config) FilePath() string {
 	return c.filePath
+}
+
+// ===== Marker Management Methods =====
+
+// validateMarkerName ensures the marker name is safe and doesn't contain path traversal characters
+func validateMarkerName(name string) error {
+	if name == "" {
+		return fmt.Errorf("marker name cannot be empty")
+	}
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("marker name cannot contain path separators: %s", name)
+	}
+	if name == ".." || name == "." {
+		return fmt.Errorf("marker name cannot be '.' or '..': %s", name)
+	}
+	return nil
+}
+
+// MarkComplete creates a completion marker file (idempotent)
+func (c *Config) MarkComplete(name string) error {
+	if err := validateMarkerName(name); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(c.markerDir, 0755); err != nil {
+		return fmt.Errorf("failed to create marker directory: %w", err)
+	}
+
+	markerPath := filepath.Join(c.markerDir, name)
+	file, err := os.Create(markerPath)
+	if err != nil {
+		return fmt.Errorf("failed to create marker file: %w", err)
+	}
+	defer file.Close()
+
+	return nil
+}
+
+// MarkCompleteIfNotExists atomically creates a marker only if it doesn't exist
+// Returns (wasCreated, error) where wasCreated indicates if this call created the marker
+func (c *Config) MarkCompleteIfNotExists(name string) (bool, error) {
+	if err := validateMarkerName(name); err != nil {
+		return false, err
+	}
+
+	if err := os.MkdirAll(c.markerDir, 0755); err != nil {
+		return false, fmt.Errorf("failed to create marker directory: %w", err)
+	}
+
+	markerPath := filepath.Join(c.markerDir, name)
+	file, err := os.OpenFile(markerPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		if os.IsExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to create marker file: %w", err)
+	}
+	defer file.Close()
+
+	return true, nil
+}
+
+// IsComplete checks if a step completion marker exists
+func (c *Config) IsComplete(name string) bool {
+	if err := validateMarkerName(name); err != nil {
+		return false
+	}
+
+	markerPath := filepath.Join(c.markerDir, name)
+	_, err := os.Stat(markerPath)
+	return err == nil
+}
+
+// ClearMarker removes a completion marker
+func (c *Config) ClearMarker(name string) error {
+	if err := validateMarkerName(name); err != nil {
+		return err
+	}
+
+	markerPath := filepath.Join(c.markerDir, name)
+	err := os.Remove(markerPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
+// ClearAllMarkers removes all marker files
+func (c *Config) ClearAllMarkers() error {
+	if _, err := os.Stat(c.markerDir); os.IsNotExist(err) {
+		return nil
+	}
+	return os.RemoveAll(c.markerDir)
+}
+
+// ListMarkers returns all marker names
+func (c *Config) ListMarkers() ([]string, error) {
+	if _, err := os.Stat(c.markerDir); os.IsNotExist(err) {
+		return []string{}, nil
+	}
+
+	entries, err := os.ReadDir(c.markerDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read marker directory: %w", err)
+	}
+
+	var markers []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			markers = append(markers, entry.Name())
+		}
+	}
+
+	return markers, nil
+}
+
+// MarkerDir returns the marker directory path
+func (c *Config) MarkerDir() string {
+	return c.markerDir
 }

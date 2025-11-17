@@ -10,17 +10,15 @@ import (
 
 // PreflightChecker performs system validation checks before setup begins
 type PreflightChecker struct {
-	ui      *ui.UI
-	markers *config.Markers
-	config  *config.Config
+	ui     *ui.UI
+	config *config.Config
 }
 
 // NewPreflightChecker creates a new PreflightChecker instance
-func NewPreflightChecker(ui *ui.UI, markers *config.Markers, cfg *config.Config) *PreflightChecker {
+func NewPreflightChecker(ui *ui.UI, cfg *config.Config) *PreflightChecker {
 	return &PreflightChecker{
-		ui:      ui,
-		markers: markers,
-		config:  cfg,
+		ui:     ui,
+		config: cfg,
 	}
 }
 
@@ -291,11 +289,7 @@ func (p *PreflightChecker) CheckNFSServer(host string) error {
 // RunAll executes all preflight checks
 func (p *PreflightChecker) RunAll() error {
 	// Check if already completed
-	exists, err := p.markers.Exists("preflight-complete")
-	if err != nil {
-		return fmt.Errorf("failed to check marker: %w", err)
-	}
-	if exists {
+	if p.config.IsComplete("preflight-complete") {
 		p.ui.Info("Preflight checks already completed (marker found)")
 		p.ui.Info("To re-run, remove marker: ~/.local/homelab-setup/preflight-complete")
 		return nil
@@ -370,7 +364,7 @@ func (p *PreflightChecker) RunAll() error {
 	p.ui.Info("System is ready for homelab setup")
 
 	// Create completion marker
-	if err := p.markers.Create("preflight-complete"); err != nil {
+	if err := p.config.MarkComplete("preflight-complete"); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

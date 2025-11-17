@@ -10,9 +10,8 @@ import (
 
 // SetupContext holds all dependencies needed for setup operations
 type SetupContext struct {
-	Config  *config.Config
-	Markers *config.Markers
-	UI      *ui.UI
+	Config *config.Config
+	UI     *ui.UI
 	// SkipWireGuard indicates whether WireGuard should be skipped when running all steps
 	SkipWireGuard bool
 }
@@ -30,16 +29,12 @@ func NewSetupContextWithOptions(nonInteractive bool, skipWireGuard bool) (*Setup
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Initialize markers
-	markers := config.NewMarkers("")
-
 	// Initialize UI
 	uiInstance := ui.New()
 	uiInstance.SetNonInteractive(nonInteractive)
 
 	return &SetupContext{
 		Config:        cfg,
-		Markers:       markers,
 		UI:            uiInstance,
 		SkipWireGuard: skipWireGuard,
 	}, nil
@@ -68,18 +63,14 @@ func GetAllSteps() []StepInfo {
 }
 
 // IsStepComplete checks if a step is complete
-func IsStepComplete(markers *config.Markers, markerName string) bool {
-	exists, err := markers.Exists(markerName)
-	if err != nil {
-		return false
-	}
-	return exists
+func IsStepComplete(cfg *config.Config, markerName string) bool {
+	return cfg.IsComplete(markerName)
 }
 
 // removeMarkerIfRerun removes a marker if the user chooses to rerun the step
-func removeMarkerIfRerun(ui *ui.UI, markers *config.Markers, markerName string, rerun bool) {
+func removeMarkerIfRerun(ui *ui.UI, cfg *config.Config, markerName string, rerun bool) {
 	if rerun {
-		if err := markers.Remove(markerName); err != nil {
+		if err := cfg.ClearMarker(markerName); err != nil {
 			ui.Warning(fmt.Sprintf("Failed to remove marker: %v", err))
 		}
 	}
@@ -90,50 +81,28 @@ func RunStep(ctx *SetupContext, shortName string) error {
 	ctx.UI.Header(fmt.Sprintf("Running: %s", shortName))
 
 	var err error
-	var markerName string
 
 	switch shortName {
 	case "preflight":
-		markerName = "preflight-complete"
 		err = runPreflight(ctx)
 	case "user":
-		markerName = "user-setup-complete"
 		err = runUser(ctx)
 	case "directory":
-		markerName = "directory-setup-complete"
 		err = runDirectory(ctx)
 	case "wireguard":
-		markerName = "wireguard-setup-complete"
 		err = runWireGuard(ctx)
 	case "nfs":
-		markerName = "nfs-setup-complete"
 		err = runNFS(ctx)
 	case "container":
-		markerName = "container-setup-complete"
 		err = runContainer(ctx)
 	case "deployment":
-		markerName = "service-deployment-complete"
 		err = runDeployment(ctx)
 	default:
 		return fmt.Errorf("unknown step: %s", shortName)
 	}
 
 	if err != nil {
-		// Mark step as failed
-		if markErr := ctx.Markers.MarkFailed(markerName); markErr != nil {
-			ctx.UI.Warning(fmt.Sprintf("Failed to create failure marker: %v", markErr))
-		}
 		return err
-	}
-
-	// Clear any previous failure marker
-	if clearErr := ctx.Markers.ClearFailure(markerName); clearErr != nil {
-		ctx.UI.Warning(fmt.Sprintf("Failed to clear failure marker: %v", clearErr))
-	}
-
-	// Mark step as complete
-	if err := ctx.Markers.Create(markerName); err != nil {
-		ctx.UI.Warning(fmt.Sprintf("Failed to create completion marker: %v", err))
 	}
 
 	ctx.UI.Success(fmt.Sprintf("Step '%s' completed successfully!", shortName))
@@ -142,114 +111,114 @@ func RunStep(ctx *SetupContext, shortName string) error {
 
 // AddWireGuardPeer invokes the WireGuard peer workflow helper.
 func AddWireGuardPeer(ctx *SetupContext, opts *steps.WireGuardPeerWorkflowOptions) error {
-	return steps.NewWireGuardSetup(ctx.Config, ctx.UI, ctx.Markers).AddPeerWorkflow(opts)
+	return steps.NewWireGuardSetup(ctx.Config, ctx.UI).AddPeerWorkflow(opts)
 }
 
 // Individual step runners
 func runPreflight(ctx *SetupContext) error {
 	// Check if already completed
-	if IsStepComplete(ctx.Markers, "preflight-complete") {
+	if IsStepComplete(ctx.Config, "preflight-complete") {
 		ctx.UI.Info("Pre-flight check already completed")
 		rerun, err := ctx.UI.PromptYesNo("Run again?", false)
 		if err != nil || !rerun {
 			return nil
 		}
-		removeMarkerIfRerun(ctx.UI, ctx.Markers, "preflight-complete", rerun)
+		removeMarkerIfRerun(ctx.UI, ctx.Config, "preflight-complete", rerun)
 	}
 
 	// Use the RunAll method that exists in PreflightChecker
-	return steps.NewPreflightChecker(ctx.UI, ctx.Markers, ctx.Config).RunAll()
+	return steps.NewPreflightChecker(ctx.UI, ctx.Config).RunAll()
 }
 
 func runUser(ctx *SetupContext) error {
 	// Check if already completed
-	if IsStepComplete(ctx.Markers, "user-setup-complete") {
+	if IsStepComplete(ctx.Config, "user-setup-complete") {
 		ctx.UI.Info("User setup already completed")
 		rerun, err := ctx.UI.PromptYesNo("Run again?", false)
 		if err != nil || !rerun {
 			return nil
 		}
-		removeMarkerIfRerun(ctx.UI, ctx.Markers, "user-setup-complete", rerun)
+		removeMarkerIfRerun(ctx.UI, ctx.Config, "user-setup-complete", rerun)
 	}
 
 	// Use the Run method that exists in UserConfigurator
-	return steps.NewUserConfigurator(ctx.Config, ctx.UI, ctx.Markers).Run()
+	return steps.NewUserConfigurator(ctx.Config, ctx.UI).Run()
 }
 
 func runDirectory(ctx *SetupContext) error {
 	// Check if already completed
-	if IsStepComplete(ctx.Markers, "directory-setup-complete") {
+	if IsStepComplete(ctx.Config, "directory-setup-complete") {
 		ctx.UI.Info("Directory setup already completed")
 		rerun, err := ctx.UI.PromptYesNo("Run again?", false)
 		if err != nil || !rerun {
 			return nil
 		}
-		removeMarkerIfRerun(ctx.UI, ctx.Markers, "directory-setup-complete", rerun)
+		removeMarkerIfRerun(ctx.UI, ctx.Config, "directory-setup-complete", rerun)
 	}
 
 	// Use the Run method that exists in DirectorySetup
-	return steps.NewDirectorySetup(ctx.Config, ctx.UI, ctx.Markers).Run()
+	return steps.NewDirectorySetup(ctx.Config, ctx.UI).Run()
 }
 
 func runWireGuard(ctx *SetupContext) error {
 	// Check if already completed
-	if IsStepComplete(ctx.Markers, "wireguard-setup-complete") {
+	if IsStepComplete(ctx.Config, "wireguard-setup-complete") {
 		ctx.UI.Info("WireGuard setup already completed")
 		rerun, err := ctx.UI.PromptYesNo("Run again?", false)
 		if err != nil || !rerun {
 			return nil
 		}
-		removeMarkerIfRerun(ctx.UI, ctx.Markers, "wireguard-setup-complete", rerun)
+		removeMarkerIfRerun(ctx.UI, ctx.Config, "wireguard-setup-complete", rerun)
 	}
 
 	// Use the Run method that exists in WireGuardSetup
 	// This handles all the logic including prompting, key generation, config writing, etc.
-	return steps.NewWireGuardSetup(ctx.Config, ctx.UI, ctx.Markers).Run()
+	return steps.NewWireGuardSetup(ctx.Config, ctx.UI).Run()
 }
 
 func runNFS(ctx *SetupContext) error {
 	// Check if already completed
-	if IsStepComplete(ctx.Markers, "nfs-setup-complete") {
+	if IsStepComplete(ctx.Config, "nfs-setup-complete") {
 		ctx.UI.Info("NFS setup already completed")
 		rerun, err := ctx.UI.PromptYesNo("Run again?", false)
 		if err != nil || !rerun {
 			return nil
 		}
-		removeMarkerIfRerun(ctx.UI, ctx.Markers, "nfs-setup-complete", rerun)
+		removeMarkerIfRerun(ctx.UI, ctx.Config, "nfs-setup-complete", rerun)
 	}
 
 	// Use the Run method that exists in NFSConfigurator
-	return steps.NewNFSConfigurator(ctx.Config, ctx.UI, ctx.Markers).Run()
+	return steps.NewNFSConfigurator(ctx.Config, ctx.UI).Run()
 }
 
 func runContainer(ctx *SetupContext) error {
 	// Check if already completed
-	if IsStepComplete(ctx.Markers, "container-setup-complete") {
+	if IsStepComplete(ctx.Config, "container-setup-complete") {
 		ctx.UI.Info("Container setup already completed")
 		rerun, err := ctx.UI.PromptYesNo("Run again?", false)
 		if err != nil || !rerun {
 			return nil
 		}
-		removeMarkerIfRerun(ctx.UI, ctx.Markers, "container-setup-complete", rerun)
+		removeMarkerIfRerun(ctx.UI, ctx.Config, "container-setup-complete", rerun)
 	}
 
 	// Use the Run method that exists in ContainerSetup
-	return steps.NewContainerSetup(ctx.Config, ctx.UI, ctx.Markers).Run()
+	return steps.NewContainerSetup(ctx.Config, ctx.UI).Run()
 }
 
 func runDeployment(ctx *SetupContext) error {
 	// Check if already completed
-	if IsStepComplete(ctx.Markers, "service-deployment-complete") {
+	if IsStepComplete(ctx.Config, "service-deployment-complete") {
 		ctx.UI.Info("Service deployment already completed")
 		rerun, err := ctx.UI.PromptYesNo("Run again?", false)
 		if err != nil || !rerun {
 			return nil
 		}
-		removeMarkerIfRerun(ctx.UI, ctx.Markers, "service-deployment-complete", rerun)
+		removeMarkerIfRerun(ctx.UI, ctx.Config, "service-deployment-complete", rerun)
 	}
 
 	// Use the Run method that exists in Deployment
-	return steps.NewDeployment(ctx.Config, ctx.UI, ctx.Markers).Run()
+	return steps.NewDeployment(ctx.Config, ctx.UI).Run()
 }
 
 // RunAll runs all setup steps in order

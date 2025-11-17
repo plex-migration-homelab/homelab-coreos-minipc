@@ -16,17 +16,15 @@ import (
 
 // NFSConfigurator handles NFS mount configuration
 type NFSConfigurator struct {
-	config  *config.Config
-	ui      *ui.UI
-	markers *config.Markers
+	config *config.Config
+	ui     *ui.UI
 }
 
 // NewNFSConfigurator creates a new NFSConfigurator instance
-func NewNFSConfigurator(cfg *config.Config, ui *ui.UI, markers *config.Markers) *NFSConfigurator {
+func NewNFSConfigurator(cfg *config.Config, ui *ui.UI) *NFSConfigurator {
 	return &NFSConfigurator{
-		config:  cfg,
-		ui:      ui,
-		markers: markers,
+		config: cfg,
+		ui:     ui,
 	}
 }
 
@@ -396,7 +394,7 @@ const nfsCompletionMarker = "nfs-setup-complete"
 // Run executes the NFS configuration step
 func (n *NFSConfigurator) Run() error {
 	// Check if already completed (and migrate legacy markers)
-	completed, err := ensureCanonicalMarker(n.markers, nfsCompletionMarker, "nfs-configured", "nfs-skipped")
+	completed, err := ensureCanonicalMarker(n.config, nfsCompletionMarker, "nfs-configured", "nfs-skipped")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
@@ -420,7 +418,7 @@ func (n *NFSConfigurator) Run() error {
 	if !useNFS {
 		n.ui.Info("Skipping NFS configuration")
 		n.ui.Info("To configure NFS later, remove marker: ~/.local/homelab-setup/" + nfsCompletionMarker)
-		if err := n.markers.Create(nfsCompletionMarker); err != nil {
+		if err := n.config.MarkComplete(nfsCompletionMarker); err != nil {
 			return fmt.Errorf("failed to create completion marker: %w", err)
 		}
 		return nil
@@ -497,7 +495,7 @@ func (n *NFSConfigurator) Run() error {
 	n.ui.Infof("Mount Point: %s", mountPoint)
 
 	// Create completion marker
-	if err := n.markers.Create(nfsCompletionMarker); err != nil {
+	if err := n.config.MarkComplete(nfsCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 

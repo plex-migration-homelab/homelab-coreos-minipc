@@ -16,9 +16,8 @@ import (
 
 // Deployment handles service deployment
 type Deployment struct {
-	config  *config.Config
-	ui      *ui.UI
-	markers *config.Markers
+	config *config.Config
+	ui     *ui.UI
 }
 
 // getServiceBaseDir resolves the base directory for service deployments.
@@ -36,11 +35,10 @@ type ServiceInfo struct {
 }
 
 // NewDeployment creates a new Deployment instance
-func NewDeployment(cfg *config.Config, ui *ui.UI, markers *config.Markers) *Deployment {
+func NewDeployment(cfg *config.Config, ui *ui.UI) *Deployment {
 	return &Deployment{
-		config:  cfg,
-		ui:      ui,
-		markers: markers,
+		config: cfg,
+		ui:     ui,
 	}
 }
 
@@ -420,7 +418,7 @@ const deploymentCompletionMarker = "service-deployment-complete"
 // Run executes the deployment step
 func (d *Deployment) Run() error {
 	// Check if already completed (and migrate legacy markers)
-	completed, err := ensureCanonicalMarker(d.markers, deploymentCompletionMarker, "deployment-complete")
+	completed, err := ensureCanonicalMarker(d.config, deploymentCompletionMarker, "deployment-complete")
 	if err != nil {
 		return fmt.Errorf("failed to check marker: %w", err)
 	}
@@ -464,7 +462,7 @@ func (d *Deployment) Run() error {
 	d.ui.Infof("Deployed %d stack(s)", len(selectedServices))
 
 	// Create completion marker
-	if err := d.markers.Create(deploymentCompletionMarker); err != nil {
+	if err := d.config.MarkComplete(deploymentCompletionMarker); err != nil {
 		return fmt.Errorf("failed to create completion marker: %w", err)
 	}
 
