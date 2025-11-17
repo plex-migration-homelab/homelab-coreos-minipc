@@ -193,7 +193,80 @@ func (n *NFSConfigurator) CreateMountPoint(mountPoint string) error {
 	return nil
 }
 
-// AddToFstab adds NFS mount to /etc/fstab
+// CreateSystemdMountUnit creates a systemd mount unit for NFS
+func (n *NFSConfigurator) CreateSystemdMountUnit(host, export, mountPoint string) error {
+	n.ui.Info("Creating systemd mount unit...")
+
+	// Convert mount point to systemd unit name
+	// /mnt/nas-media -> mnt-nas-media.mount
+	unitName := pathToUnitName(mountPoint)
+	unitPath := filepath.Join("/etc/systemd/system", unitName)
+
+	n.ui.Infof("Unit name: %s", unitName)
+
+	// Generate mount unit content
+	content := fmt.Sprintf(`[Unit]
+Description=NFS mount for %s
+After=network-online.target
+Requires=network-online.target
+Before=remote-fs.target
+Wants=network-online.target
+
+[Mount]
+What=%s:%s
+Where=%s
+Type=nfs
+Options=defaults,nfsvers=4.2,_netdev,x-systemd.automount,x-systemd.mount-timeout=10
+
+[Install]
+WantedBy=remote-fs.target
+`, mountPoint, host, export, mountPoint)
+
+	// Check if unit already exists
+	existingContent, err := os.ReadFile(unitPath)
+	if err == nil {
+		// Unit exists, check if content is the same
+		if string(existingContent) == content {
+			n.ui.Info("Mount unit already exists with correct configuration")
+			return nil
+		}
+		n.ui.Info("Updating existing mount unit")
+	}
+
+	// Write the mount unit file
+	if err := n.fs.WriteFile(unitPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write mount unit %s: %w", unitPath, err)
+	}
+
+	n.ui.Success(fmt.Sprintf("Created mount unit: %s", unitPath))
+
+	// Reload systemd to recognize the new unit
+	if output, err := n.runner.Run("sudo", "-n", "systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("failed to reload systemd: %w\nOutput: %s", err, output)
+	}
+
+	n.ui.Success("systemd reloaded")
+
+	// Enable the mount unit
+	if output, err := n.runner.Run("sudo", "-n", "systemctl", "enable", unitName); err != nil {
+		return fmt.Errorf("failed to enable mount unit: %w\nOutput: %s", err, output)
+	}
+
+	n.ui.Success(fmt.Sprintf("Enabled mount unit: %s", unitName))
+
+	return nil
+}
+
+// pathToUnitName converts a mount point path to a systemd unit name
+// Example: /mnt/nas-media -> mnt-nas-media.mount
+func pathToUnitName(mountPoint string) string {
+	// Remove leading slash and replace remaining slashes with dashes
+	name := strings.TrimPrefix(mountPoint, "/")
+	name = strings.ReplaceAll(name, "/", "-")
+	return name + ".mount"
+}
+
+// AddToFstab adds NFS mount to /etc/fstab (deprecated, kept for compatibility)
 func (n *NFSConfigurator) AddToFstab(host, export, mountPoint string) error {
 	n.ui.Info("Adding NFS mount to /etc/fstab...")
 
@@ -330,16 +403,21 @@ func (n *NFSConfigurator) Run() error {
 		return fmt.Errorf("failed to create mount point: %w", err)
 	}
 
-	// Add to fstab
-	n.ui.Step("Configuring /etc/fstab")
-	if err := n.AddToFstab(host, export, mountPoint); err != nil {
-		return fmt.Errorf("failed to add to fstab: %w", err)
+	// Create systemd mount unit
+	n.ui.Step("Creating Systemd Mount Unit")
+	if err := n.CreateSystemdMountUnit(host, export, mountPoint); err != nil {
+		return fmt.Errorf("failed to create systemd mount unit: %w", err)
 	}
 
-	// Mount NFS share
-	n.ui.Step("Mounting NFS Share")
-	if err := n.MountNFS(mountPoint); err != nil {
-		return fmt.Errorf("failed to mount NFS share: %w", err)
+	// Start the mount unit
+	n.ui.Step("Starting Mount Unit")
+	unitName := pathToUnitName(mountPoint)
+	if output, err := n.runner.Run("sudo", "-n", "systemctl", "start", unitName); err != nil {
+		n.ui.Warning(fmt.Sprintf("Failed to start mount unit: %v", err))
+		n.ui.Info("Output: " + output)
+		n.ui.Info("The mount will be activated automatically when needed")
+	} else {
+		n.ui.Success("NFS share mounted successfully")
 	}
 
 	// Save configuration
