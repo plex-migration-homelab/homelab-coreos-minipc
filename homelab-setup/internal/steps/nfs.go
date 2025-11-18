@@ -320,16 +320,25 @@ func createFstabEntry(cfg *config.Config, ui *ui.UI, host, export, mountPoint st
 
 	fstabLines := strings.Split(string(content), "\n")
 
-	// Check if an identical entry already exists
+	// Check if an identical entry already exists and build new content with replacements
+	var updatedLines []string
+	replacedEntry := false
+
 	for _, line := range fstabLines {
 		trimmed := strings.TrimSpace(line)
+
+		// Check for exact duplicate
 		if trimmed == fstabEntry {
 			ui.Success("Identical fstab entry already exists, skipping")
 			return nil
 		}
+
 		// Check if mount point is already used (even with different options)
 		if strings.Contains(trimmed, " "+mountPoint+" ") && !strings.HasPrefix(trimmed, "#") {
 			ui.Warning(fmt.Sprintf("Mount point %s already exists in fstab with different options", mountPoint))
+			ui.Infof("Existing entry: %s", trimmed)
+			ui.Infof("New entry:      %s", fstabEntry)
+
 			continueAnyway, err := ui.PromptYesNo("Replace existing entry?", false)
 			if err != nil {
 				return fmt.Errorf("failed to prompt: %w", err)
@@ -337,18 +346,30 @@ func createFstabEntry(cfg *config.Config, ui *ui.UI, host, export, mountPoint st
 			if !continueAnyway {
 				return fmt.Errorf("fstab entry creation cancelled")
 			}
-			// Comment out the old entry
-			line = "# " + trimmed + " # Replaced by homelab-setup"
+
+			// Comment out the old entry and mark for replacement
+			updatedLines = append(updatedLines, "# "+trimmed+" # Replaced by homelab-setup")
+			replacedEntry = true
+			continue
 		}
+
+		// Keep all other lines as-is
+		updatedLines = append(updatedLines, line)
 	}
 
-	// Append new entry
-	newContent := string(content)
+	// Build new content from updated lines
+	newContent := strings.Join(updatedLines, "\n")
 	if !strings.HasSuffix(newContent, "\n") {
 		newContent += "\n"
 	}
+
+	// Append new entry
 	newContent += "# NFS mount added by homelab-setup\n"
 	newContent += fstabEntry + "\n"
+
+	if replacedEntry {
+		ui.Info("Old entry will be commented out and new entry appended")
+	}
 
 	ui.Infof("Adding entry: %s", fstabEntry)
 
