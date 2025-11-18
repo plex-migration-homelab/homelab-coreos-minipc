@@ -96,13 +96,14 @@ func FileExists(path string) (bool, error) {
 	}
 	if errors.Is(err, os.ErrPermission) {
 		cmd := exec.Command("sudo", "-n", "test", "-e", path)
-		if runErr := cmd.Run(); runErr == nil {
+		runErr := cmd.Run()
+		if runErr == nil {
 			return true, nil
-		} else if exitErr, ok := runErr.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			return false, nil
-		} else {
-			return false, fmt.Errorf("failed to check if file exists %s: %w", path, runErr)
 		}
+		if exitErr, ok := runErr.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check if file exists %s: %w", path, runErr)
 	}
 	return false, fmt.Errorf("failed to check if file exists %s: %w", path, err)
 }

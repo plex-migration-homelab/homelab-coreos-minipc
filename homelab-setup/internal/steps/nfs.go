@@ -17,7 +17,7 @@ import (
 const nfsCompletionMarker = "nfs-setup-complete"
 
 // checkNFSUtils verifies that nfs-utils package is installed
-func checkNFSUtils(cfg *config.Config, ui *ui.UI) error {
+func checkNFSUtils(_ *config.Config, ui *ui.UI) error {
 	ui.Info("Checking for NFS client utilities...")
 
 	installed, err := system.IsPackageInstalled("nfs-utils")
@@ -46,7 +46,7 @@ func checkNFSUtils(cfg *config.Config, ui *ui.UI) error {
 }
 
 // promptForNFS asks if the user wants to configure NFS
-func promptForNFS(cfg *config.Config, ui *ui.UI) (bool, error) {
+func promptForNFS(_ *config.Config, ui *ui.UI) (bool, error) {
 	ui.Info("NFS (Network File System) allows you to mount remote storage")
 	ui.Info("This is useful for accessing media libraries from a NAS server")
 	ui.Print("")
@@ -206,7 +206,7 @@ func validateNFSConnection(cfg *config.Config, ui *ui.UI, host string) error {
 }
 
 // validateNFSExport verifies that the specified export path exists on the NFS server
-func validateNFSExport(cfg *config.Config, ui *ui.UI, host, export string) error {
+func validateNFSExport(_ *config.Config, ui *ui.UI, host, export string) error {
 	ui.Infof("Verifying export path '%s' on server...", export)
 
 	// Get the list of exports from the server
@@ -260,7 +260,7 @@ func validateNFSExport(cfg *config.Config, ui *ui.UI, host, export string) error
 }
 
 // createMountPoint creates the local mount point directory
-func createMountPoint(cfg *config.Config, ui *ui.UI, mountPoint string) error {
+func createMountPoint(_ *config.Config, ui *ui.UI, mountPoint string) error {
 	ui.Infof("Creating mount point %s...", mountPoint)
 
 	// Create directory with root ownership (mount points should be owned by root)
@@ -466,7 +466,7 @@ func createFstabEntry(cfg *config.Config, ui *ui.UI, host, export, mountPoint st
 }
 
 // migrateSystemdMountToFstab migrates from legacy systemd mount units to fstab
-func migrateSystemdMountToFstab(cfg *config.Config, ui *ui.UI, mountPoint string) error {
+func migrateSystemdMountToFstab(_ *config.Config, ui *ui.UI, mountPoint string) {
 	ui.Info("Checking for legacy systemd mount units...")
 
 	// Convert mount point to systemd unit name
@@ -483,7 +483,7 @@ func migrateSystemdMountToFstab(cfg *config.Config, ui *ui.UI, mountPoint string
 
 	if !mountExists && !automountExists {
 		ui.Info("No legacy systemd mount units found")
-		return nil
+		return
 	}
 
 	ui.Warning(fmt.Sprintf("Found legacy systemd mount units: %s", mountUnitName))
@@ -535,7 +535,6 @@ func migrateSystemdMountToFstab(cfg *config.Config, ui *ui.UI, mountPoint string
 	}
 
 	ui.Success("Legacy systemd mount units removed")
-	return nil
 }
 
 // RunNFSSetup executes the NFS configuration step
@@ -612,9 +611,7 @@ func RunNFSSetup(cfg *config.Config, ui *ui.UI) error {
 
 	// Migrate legacy systemd mount units if they exist
 	ui.Step("Migrating Legacy Mount Units")
-	if err := migrateSystemdMountToFstab(cfg, ui, mountPoint); err != nil {
-		return fmt.Errorf("failed to migrate legacy mount units: %w", err)
-	}
+	migrateSystemdMountToFstab(cfg, ui, mountPoint)
 
 	// Create fstab entry and mount
 	ui.Step("Configuring fstab Mount")

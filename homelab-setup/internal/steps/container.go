@@ -29,7 +29,7 @@ func serviceDirectory(cfg *config.Config, serviceName string) string {
 }
 
 // findTemplateDirectory locates compose templates
-func findTemplateDirectory(cfg *config.Config, ui *ui.UI) (string, error) {
+func findTemplateDirectory(_ *config.Config, ui *ui.UI) (string, error) {
 	ui.Step("Locating Compose Templates")
 
 	// Check home setup directory first
@@ -89,7 +89,7 @@ func countYAMLFiles(dir string) (int, error) {
 }
 
 // discoverStacks discovers available container stacks
-func discoverStacks(cfg *config.Config, ui *ui.UI, templateDir string) (map[string]string, error) {
+func discoverStacks(_ *config.Config, ui *ui.UI, templateDir string) (map[string]string, error) {
 	ui.Step("Discovering Available Container Stacks")
 	ui.Infof("Scanning directory: %s", templateDir)
 
@@ -296,7 +296,7 @@ func copyTemplates(cfg *config.Config, ui *ui.UI, templateDir string, stacks map
 }
 
 // createBaseEnvConfig creates base environment configuration
-func createBaseEnvConfig(cfg *config.Config, ui *ui.UI) error {
+func createBaseEnvConfig(cfg *config.Config, ui *ui.UI) {
 	ui.Step("Validating Base Environment Configuration")
 
 	// Verify PUID/PGID are set from user setup
@@ -322,8 +322,6 @@ func createBaseEnvConfig(cfg *config.Config, ui *ui.UI) error {
 	ui.Infof("  PGID=%s (containers will run as this GID)", pgid)
 	ui.Infof("  TZ=%s", tz)
 	ui.Infof("  APPDATA_PATH=%s", appdataPath)
-
-	return nil
 }
 
 // configureStackEnv configures environment for a specific stack
@@ -728,9 +726,7 @@ func RunContainerSetup(cfg *config.Config, ui *ui.UI) error {
 	}
 
 	// Create base environment configuration
-	if err := createBaseEnvConfig(cfg, ui); err != nil {
-		return fmt.Errorf("failed to create base config: %w", err)
-	}
+	createBaseEnvConfig(cfg, ui)
 
 	// Configure each selected stack
 	for _, serviceName := range selectedStacks {

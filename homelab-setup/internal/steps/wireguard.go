@@ -187,7 +187,7 @@ func incrementIP(ip string) (string, error) {
 }
 
 // PromptForWireGuard asks if the user wants to configure WireGuard
-func promptForWireGuard(cfg *config.Config, ui *ui.UI) (bool, error) {
+func promptForWireGuard(_ *config.Config, ui *ui.UI) (bool, error) {
 	ui.Info("WireGuard is a modern, fast VPN protocol")
 	ui.Info("It can be used to:")
 	ui.Info("  - Securely connect to your homelab from anywhere")
@@ -204,7 +204,7 @@ func promptForWireGuard(cfg *config.Config, ui *ui.UI) (bool, error) {
 }
 
 // CheckWireGuardInstalled checks if WireGuard tools are installed
-func checkWireGuardInstalled(cfg *config.Config, ui *ui.UI) error {
+func checkWireGuardInstalled(_ *config.Config, ui *ui.UI) error {
 	ui.Info("Checking for WireGuard tools...")
 
 	installed, err := system.IsPackageInstalled("wireguard-tools")
@@ -233,7 +233,7 @@ func checkWireGuardInstalled(cfg *config.Config, ui *ui.UI) error {
 }
 
 // PromptForConfig prompts for WireGuard configuration
-func promptForConfig(cfg *config.Config, ui *ui.UI, publicKey string) (*WireGuardConfig, error) {
+func promptForConfig(_ *config.Config, ui *ui.UI, publicKey string) (*WireGuardConfig, error) {
 	ui.Print("")
 	ui.Info("WireGuard Interface Configuration:")
 	ui.Print("")
@@ -340,7 +340,7 @@ PrivateKey = %s
 }
 
 // EnableService enables and starts the WireGuard service
-func enableService(cfg *config.Config, ui *ui.UI, interfaceName string) error {
+func enableService(_ *config.Config, ui *ui.UI, interfaceName string) error {
 	serviceName := fmt.Sprintf("wg-quick@%s.service", interfaceName)
 
 	ui.Print("")
@@ -416,7 +416,7 @@ func enableService(cfg *config.Config, ui *ui.UI, interfaceName string) error {
 // Return value:
 //   - Returns a WireGuardPeer and nil error on success.
 //   - Returns nil and an error for non-recoverable input errors (such as EOF).
-func promptForPeer(cfg *config.Config, ui *ui.UI, nextIP string) (*WireGuardPeer, error) {
+func promptForPeer(_ *config.Config, ui *ui.UI, nextIP string) (*WireGuardPeer, error) {
 	peer := &WireGuardPeer{}
 
 	ui.Print("")
@@ -548,7 +548,7 @@ func addPeerToConfig(cfg *config.Config, ui *ui.UI, interfaceName string, peer *
 //   - After all peers are added, instructs the user to restart the WireGuard service for changes to take effect.
 //
 // Returns nil error if the user declines to add peers.
-func addPeers(cfg *config.Config, ui *ui.UI, keygen WireGuardKeyGenerator, interfaceName, publicKey, interfaceIP string) error {
+func addPeers(cfg *config.Config, ui *ui.UI, _ WireGuardKeyGenerator, interfaceName, publicKey, interfaceIP string) error {
 	ui.Print("")
 	ui.Info("WireGuard Peer Configuration:")
 	ui.Separator()

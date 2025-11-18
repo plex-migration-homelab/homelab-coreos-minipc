@@ -103,9 +103,7 @@ func RunDirectorySetup(cfg *config.Config, ui *ui.UI) error {
 	}
 
 	// Display structure
-	if err := displayStructure(containersBase, appdataBase, ui); err != nil {
-		ui.Warning(fmt.Sprintf("Failed to display structure: %v", err))
-	}
+	displayStructure(containersBase, appdataBase, ui)
 
 	// Save configuration
 	ui.Step("Saving Configuration")
@@ -296,7 +294,7 @@ func verifyStructure(containersBase, appdataBase string, ui *ui.UI) error {
 }
 
 // displayStructure displays the created directory structure
-func displayStructure(containersBase, appdataBase string, ui *ui.UI) error {
+func displayStructure(containersBase, appdataBase string, ui *ui.UI) {
 	ui.Print("")
 	ui.Info("Directory structure created:")
 	ui.Print("")
@@ -327,8 +325,6 @@ func displayStructure(containersBase, appdataBase string, ui *ui.UI) error {
 			ui.Printf("  └── ... and %d more", count-5)
 		}
 	}
-
-	return nil
 }
 
 // verifyAppdataPermissions verifies the homelab user can write to appdata directories

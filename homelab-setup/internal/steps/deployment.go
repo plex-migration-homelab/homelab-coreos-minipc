@@ -63,7 +63,7 @@ func getSelectedServices(cfg *config.Config) ([]string, error) {
 }
 
 // checkExistingService checks if a systemd service exists
-func checkExistingService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) (bool, error) {
+func checkExistingService(_ *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) (bool, error) {
 	ui.Infof("Checking for service: %s", serviceInfo.UnitName)
 
 	exists, err := system.ServiceExists(serviceInfo.UnitName)
@@ -179,30 +179,30 @@ func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInf
 	var unitAfter, unitRequires, unitWants []string
 	var mountDependencies string
 
+	// Common dependencies
+	unitWants = append(unitWants, "network-online.target")
+	unitAfter = append(unitAfter, "network-online.target")
+
 	if runtime == system.RuntimeDocker {
 		// Docker runtime: system-level service with docker.service dependency
-		unitWants = append(unitWants, "network-online.target", "docker.service")
-		unitAfter = append(unitAfter, "network-online.target", "docker.service")
+		unitWants = append(unitWants, "docker.service")
+		unitAfter = append(unitAfter, "docker.service")
+	}
 
-		// Check if NFS is configured and add mount dependency
-		nfsMountPoint := cfg.GetOrDefault(config.KeyNFSMountPoint, "")
-		if nfsMountPoint != "" {
-			// Get escaped mount unit name
-			mountUnit, err := fstabMountToSystemdUnit(nfsMountPoint)
-			if err != nil {
-				ui.Warning(fmt.Sprintf("Failed to escape NFS mount point: %v", err))
-				ui.Info("NFS mount dependency will not be added to service unit")
-			} else {
-				unitAfter = append(unitAfter, mountUnit)
-				unitRequires = append(unitRequires, mountUnit)
-				mountDependencies = fmt.Sprintf("RequiresMountsFor=%s\n", nfsMountPoint)
-				ui.Infof("Service will depend on NFS mount: %s (%s)", nfsMountPoint, mountUnit)
-			}
+	// Check if NFS is configured and add mount dependency (common for both runtimes)
+	nfsMountPoint := cfg.GetOrDefault(config.KeyNFSMountPoint, "")
+	if nfsMountPoint != "" {
+		// Get escaped mount unit name
+		mountUnit, err := fstabMountToSystemdUnit(nfsMountPoint)
+		if err != nil {
+			ui.Warning(fmt.Sprintf("Failed to escape NFS mount point: %v", err))
+			ui.Info("NFS mount dependency will not be added to service unit")
+		} else {
+			unitAfter = append(unitAfter, mountUnit)
+			unitRequires = append(unitRequires, mountUnit)
+			mountDependencies = fmt.Sprintf("RequiresMountsFor=%s\n", nfsMountPoint)
+			ui.Infof("Service will depend on NFS mount: %s (%s)", nfsMountPoint, mountUnit)
 		}
-	} else {
-		// Podman runtime: rootless with User= directive (legacy behavior)
-		unitWants = append(unitWants, "network-online.target")
-		unitAfter = append(unitAfter, "network-online.target")
 	}
 
 	// Build [Unit] section with optional Requires= directive
@@ -226,17 +226,18 @@ After=%s
 
 	// Build [Service] section
 	var serviceSection string
+
+	// Format compose command for systemd Exec directives
+	execComposeCmd := formatComposeCommandForSystemd(composeCmd)
+
+	// Add ExecStartPre to verify NFS mount if configured
+	var preExecChecks string
+	if nfsMountPoint != "" {
+		preExecChecks = fmt.Sprintf("ExecStartPre=/usr/bin/findmnt %s\n", nfsMountPoint)
+	}
+
 	if runtime == system.RuntimeDocker {
 		// Docker: system-level service (no User= directive)
-		// Format compose command for systemd Exec directives
-		execComposeCmd := formatComposeCommandForSystemd(composeCmd)
-
-		// Add ExecStartPre to verify NFS mount if configured
-		var preExecChecks string
-		nfsMountPoint := cfg.GetOrDefault(config.KeyNFSMountPoint, "")
-		if nfsMountPoint != "" {
-			preExecChecks = fmt.Sprintf("ExecStartPre=/usr/bin/findmnt %s\n", nfsMountPoint)
-		}
 		preExecChecks += fmt.Sprintf("ExecStartPre=%s pull --quiet\n", execComposeCmd)
 
 		serviceSection = fmt.Sprintf(`[Service]
@@ -276,8 +277,7 @@ TimeoutStopSec=120
 			return fmt.Errorf("failed to prepare runtime directory for %s: %w", serviceUser, err)
 		}
 
-		// Format compose command for systemd Exec directives
-		execComposeCmd := formatComposeCommandForSystemd(composeCmd)
+		preExecChecks += fmt.Sprintf("ExecStartPre=%s pull\n", execComposeCmd)
 
 		serviceSection = fmt.Sprintf(`[Service]
 User=%s
@@ -286,12 +286,11 @@ Environment="XDG_RUNTIME_DIR=%s"
 Type=oneshot
 RemainAfterExit=true
 WorkingDirectory=%s
-ExecStartPre=%s pull
-ExecStart=%s up -d
+%sExecStart=%s up -d
 ExecStop=%s down
 TimeoutStartSec=600
 
-`, serviceUser, serviceUser, runtimeDir, serviceInfo.Directory, execComposeCmd, execComposeCmd, execComposeCmd)
+`, serviceUser, serviceUser, runtimeDir, serviceInfo.Directory, preExecChecks, execComposeCmd, execComposeCmd)
 	}
 
 	// Build complete unit content
@@ -381,7 +380,7 @@ func pullImages(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
 }
 
 // enableAndStartService enables and starts a systemd service
-func enableAndStartService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
+func enableAndStartService(_ *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
 	ui.Step(fmt.Sprintf("Enabling and Starting %s Service", serviceInfo.DisplayName))
 
 	// Enable service
@@ -646,13 +645,15 @@ func runDeploymentPreflight(cfg *config.Config, ui *ui.UI) error {
 			cmdParts = append(cmdParts, "config", "--quiet")
 			cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 			if output, err := cmd.CombinedOutput(); err != nil {
-				os.Chdir(originalDir)
+				_ = os.Chdir(originalDir) // Best effort to restore directory
 				ui.Error(fmt.Sprintf("Compose file validation failed for %s", serviceName))
 				ui.Error(fmt.Sprintf("Output: %s", string(output)))
 				return fmt.Errorf("invalid compose file in %s: %w", serviceInfo.Directory, err)
 			}
 
-			os.Chdir(originalDir)
+			if err := os.Chdir(originalDir); err != nil {
+				return fmt.Errorf("failed to restore working directory: %w", err)
+			}
 			ui.Successf("Validated compose file for %s", serviceName)
 		}
 
