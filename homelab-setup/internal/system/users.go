@@ -2,6 +2,7 @@ package system
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"os/user"
 	"strconv"
@@ -178,6 +179,69 @@ func SetUserShell(username, shell string) error {
 	}
 
 	return nil
+}
+
+// IsLingerEnabled reports whether loginctl lingering is enabled for the user
+// so the user's systemd instance and runtime directory are available without
+// an active login session.
+func IsLingerEnabled(username string) (bool, error) {
+	cmd := exec.Command("loginctl", "show-user", username, "--property=Linger", "--value")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("failed to query lingering for %s: %w\nOutput: %s", username, err, string(output))
+	}
+
+	return strings.TrimSpace(string(output)) == "yes", nil
+}
+
+// EnableLinger turns on loginctl lingering for the user so systemd creates
+// /run/user/<uid> on boot even before the first login, enabling rootless
+// runtimes to access their state sockets.
+func EnableLinger(username string) error {
+	cmd := exec.Command("sudo", "-n", "loginctl", "enable-linger", username)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to enable lingering for %s: %w\nOutput: %s", username, err, string(output))
+	}
+
+	return nil
+}
+
+// EnsureUserRuntimeDir makes sure the user's runtime directory exists with the
+// expected ownership and permissions so rootless runtimes can start even before
+// the user logs in.
+func EnsureUserRuntimeDir(username string) (string, error) {
+	uid, err := GetUID(username)
+	if err != nil {
+		return "", err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+	if info, err := os.Stat(runtimeDir); err == nil {
+		if !info.IsDir() {
+			return "", fmt.Errorf("runtime path exists but is not a directory: %s", runtimeDir)
+		}
+		return runtimeDir, nil
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to check runtime directory %s: %w", runtimeDir, err)
+	}
+
+	mkdirCmd := exec.Command("sudo", "-n", "mkdir", "-p", runtimeDir)
+	if output, err := mkdirCmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to create runtime directory %s: %w\nOutput: %s", runtimeDir, err, string(output))
+	}
+
+	chownCmd := exec.Command("sudo", "-n", "chown", fmt.Sprintf("%d:%d", uid, uid), runtimeDir)
+	if output, err := chownCmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to chown runtime directory %s: %w\nOutput: %s", runtimeDir, err, string(output))
+	}
+
+	chmodCmd := exec.Command("sudo", "-n", "chmod", "0700", runtimeDir)
+	if output, err := chmodCmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to chmod runtime directory %s: %w\nOutput: %s", runtimeDir, err, string(output))
+	}
+
+	return runtimeDir, nil
 }
 
 // GetCurrentUser returns the current user information
