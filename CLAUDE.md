@@ -119,6 +119,7 @@ make lint        # Run linter
 
 #### Building the Go CLI
 
+
 ```bash
 cd homelab-setup/
 
