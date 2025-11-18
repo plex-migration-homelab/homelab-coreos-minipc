@@ -85,6 +85,27 @@ func getRuntimeFromConfig(cfg *config.Config) (system.ContainerRuntime, error) {
 	}
 }
 
+// mountPointToUnitName converts a mount point path to systemd unit names.
+// Returns the base name, mount unit name, and automount unit name.
+// Example: "/mnt/nas-media" -> "mnt-nas-media", "mnt-nas-media.mount", "mnt-nas-media.automount"
+func mountPointToUnitName(mountPoint string) (baseName, mountUnit, automountUnit string) {
+	// Trim and clean the path
+	cleanedPath := strings.TrimSpace(mountPoint)
+	cleanedPath = filepath.Clean(cleanedPath)
+
+	// Strip leading "/" if present
+	baseName = strings.TrimPrefix(cleanedPath, "/")
+
+	// Replace "/" with "-"
+	baseName = strings.ReplaceAll(baseName, "/", "-")
+
+	// Create unit names
+	mountUnit = baseName + ".mount"
+	automountUnit = baseName + ".automount"
+
+	return baseName, mountUnit, automountUnit
+}
+
 // createComposeService creates a systemd service for docker-compose/podman-compose
 func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
 	ui.Infof("Creating systemd service: %s", serviceInfo.UnitName)
@@ -102,11 +123,42 @@ func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInf
 
 	ui.Infof("Using compose command: %s", composeCmd)
 
-	// Create service unit content
+	// Build mount dependencies
+	mountDeps := serviceInfo.Directory // Always require service directory
+
+	// Check if NFS is configured and add NFS mount dependencies
+	nfsMountPoint := cfg.GetOrDefault("NFS_MOUNT_POINT", "")
+	var afterUnits []string
+	afterUnits = append(afterUnits, "network-online.target")
+
+	if nfsMountPoint != "" {
+		// Add NFS mount point to RequiresMountsFor
+		mountDeps = fmt.Sprintf("%s %s", serviceInfo.Directory, nfsMountPoint)
+
+		// Get the automount unit name for proper ordering
+		_, _, automountUnit := mountPointToUnitName(nfsMountPoint)
+
+		// Add dependency on the automount unit
+		afterUnits = append(afterUnits, automountUnit)
+
+		ui.Infof("Adding NFS mount dependency: %s (via %s)", nfsMountPoint, automountUnit)
+	}
+
+	// Build After= directive
+	afterDirective := strings.Join(afterUnits, " ")
+
+	// Build Wants= directive (include automount unit if NFS is configured)
+	wantsDirective := "network-online.target"
+	if nfsMountPoint != "" {
+		_, _, automountUnit := mountPointToUnitName(nfsMountPoint)
+		wantsDirective = fmt.Sprintf("network-online.target %s", automountUnit)
+	}
+
+	// Create service unit content with proper NFS dependencies
 	unitContent := fmt.Sprintf(`[Unit]
 Description=Homelab %s Stack
-Wants=network-online.target
-After=network-online.target
+Wants=%s
+After=%s
 RequiresMountsFor=%s
 
 [Service]
@@ -120,7 +172,10 @@ TimeoutStartSec=600
 
 [Install]
 WantedBy=multi-user.target
-`, serviceInfo.DisplayName, serviceInfo.Directory,
+`, serviceInfo.DisplayName,
+		wantsDirective,
+		afterDirective,
+		mountDeps,
 		serviceInfo.Directory,
 		composeCmd, composeCmd, composeCmd)
 
