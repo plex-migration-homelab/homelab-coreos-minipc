@@ -367,19 +367,16 @@ RECOMMENDED APPROACH:
 
 CONFIGURATION FILES:
 
-  Configuration: ~/.homelab-setup.conf
-  Markers: ~/.local/homelab-setup/
+	Configuration: ~/.homelab-setup.conf
+	Markers: ~/.local/homelab-setup/
 
-COMMAND-LINE MODE:
+AUTOMATION NOTES:
 
-  You can also run this tool in non-interactive mode:
-
-    homelab-setup run all              # Run all steps
-    homelab-setup run quick            # Skip WireGuard
-    homelab-setup run <step>           # Run specific step
-    homelab-setup status               # Show status
-    homelab-setup reset                # Reset markers
-    homelab-setup troubleshoot         # Run troubleshooter
+	The Go helper focuses on the interactive menu. For quick re-runs,
+	you can call individual steps from the menu or re-run "Run All" with
+	or without WireGuard. Non-interactive flags from the legacy bash
+	scripts are intentionally omitted to keep this tool simple for
+	single-user homelab installs.
 
 For more information, see the project README.
 `

@@ -2,6 +2,12 @@
 
 Declarative image + helper tooling for the NAB9 mini PC that fronts my homelab. It rebases Fedora CoreOS into a custom UBlue uCore build, tunnels traffic through WireGuard to a VPS, and mounts media from the backend file server over NFS.
 
+## Scope & assumptions
+- Single-node helper meant for my own homelab. If you grab it, expect "works on my LAN" defaults.
+- Focuses on the interactive Go helper (menu-based) with optional fallbacks to the legacy bash scripts under `files/`.
+- Inputs are trusted. The wizard validates obvious pitfalls but intentionally avoids enterprise-grade policy layers.
+
+
 ## What's running
 - **Media:** Plex and Jellyfin with Intel QuickSync for hardware transcodes.
 - **Portals:** Overseerr, Wizarr, and Nginx Proxy Manager on the VPS for public access.
@@ -14,11 +20,7 @@ Declarative image + helper tooling for the NAB9 mini PC that fronts my homelab. 
 3. **Expose services.** Plex/Jellyfin stay on direct ports. Everything else routes through the VPS via WireGuard + Nginx Proxy Manager. Config files for tunnels and compose stacks are under `~/setup/` and `/srv/containers/`.
 
 ## Documentation map
-- [`docs/getting-started.md`](docs/getting-started.md): consolidated setup walkthrough covering prerequisites, menu options, and manual fallbacks.
-- [`docs/reference/ignition.md`](docs/reference/ignition.md): Butane/Ignition workflow plus image-layering details.
-- [`docs/reference/homelab-setup-cli.md`](docs/reference/homelab-setup-cli.md): full manual for the helper scripts and CLI.
-- [`docs/testing/virt-manager-qa.md`](docs/testing/virt-manager-qa.md): virt-manager smoke + regression checklist.
-- [`docs/operations/weekend-deployment.md`](docs/operations/weekend-deployment.md): release/rollback checklist.
-- [`docs/audits/2025-go-audit.md`](docs/audits/2025-go-audit.md) and [`docs/audits/2025-go-audit-changelog.md`](docs/audits/2025-go-audit-changelog.md): audit records and fix history.
-- [`docs/dev`](docs/dev): devcontainer, CI build pipeline, and final review checklist.
-- [`docs/roadmap`](docs/roadmap): rewrite plan, backlog, and phase handoffs.
+- [`docs/getting-started.md`](docs/getting-started.md): walkthrough for the image install plus the Go helper menu.
+- [`docs/reference/ignition.md`](docs/reference/ignition.md): Butane/Ignition workflow and image layering details.
+- [`docs/reference/homelab-setup-cli.md`](docs/reference/homelab-setup-cli.md): legacy bash script reference kept for historical context; the Go helper re-uses the same concepts but is menu-driven only.
+- [`docs/testing/virt-manager-qa.md`](docs/testing/virt-manager-qa.md): quick smoke checklist for the VM validation flow.

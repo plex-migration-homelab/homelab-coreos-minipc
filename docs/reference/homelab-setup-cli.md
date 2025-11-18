@@ -1,5 +1,11 @@
 # UBlue uCore Homelab Setup Scripts
 
+> **Heads up:** This document covers the legacy bash helper that still ships in
+> `files/home-lab-setup-scripts`. The current Go-based `homelab-setup` binary
+> reuses the same concepts but intentionally limits itself to an interactive
+> menu so the footprint stays small. Keep this page around as a detailed
+> reference, but defer to the README for the exact Go helper behavior.
+
 Comprehensive interactive bash setup scripts for configuring a homelab environment on **UBlue uCore** (immutable Fedora with rpm-ostree).
 
 ## Table of Contents
