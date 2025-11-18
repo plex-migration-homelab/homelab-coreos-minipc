@@ -24,43 +24,43 @@ type Config struct {
 }
 
 // ensureLoaded loads configuration data from disk once before read operations.
-// This method must only be called while holding c.mu.RLock or c.mu.Lock.
-// The c.loaded check happens inside the caller's lock to prevent race conditions.
+// It handles locking internally to prevent concurrent map writes while allowing
+// readers to share the lock when the configuration is already loaded.
 func (c *Config) ensureLoaded() error {
+	c.mu.RLock()
+	if c.loaded {
+		c.mu.RUnlock()
+		return nil
+	}
+	c.mu.RUnlock()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.loadIfNeededLocked()
+}
+
+// loadIfNeededLocked loads configuration data from disk if it has not been
+// loaded yet. The caller must hold c.mu.Lock().
+func (c *Config) loadIfNeededLocked() error {
 	if c.loaded {
 		return nil
 	}
-	return c.Load()
+	return c.loadFromDiskLocked()
 }
 
-// New creates a new Config instance
-func New(filePath string) *Config {
-	var markerDir string
-	if filePath == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "/var/home/core" // Fallback for CoreOS
-		}
-		filePath = filepath.Join(home, ".homelab-setup.conf")
-		markerDir = filepath.Join(home, ".local", "homelab-setup")
-	} else {
-		// If custom config path provided, use adjacent directory for markers
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = "/var/home/core"
-		}
-		markerDir = filepath.Join(home, ".local", "homelab-setup")
+// loadFromDiskLocked performs the actual read from disk. The caller must hold
+// c.mu.Lock().
+func (c *Config) loadFromDiskLocked() error {
+	if c.data == nil {
+		c.data = make(map[string]string)
 	}
 
-	return &Config{
-		filePath:  filePath,
-		markerDir: markerDir,
-		data:      make(map[string]string),
+	// Clear any in-memory data to avoid merging stale values on reload.
+	for k := range c.data {
+		delete(c.data, k)
 	}
-}
 
-// Load reads configuration from file
-func (c *Config) Load() error {
 	// If file doesn't exist, that's okay - we'll create it on Save
 	if _, err := os.Stat(c.filePath); os.IsNotExist(err) {
 		c.loaded = true
@@ -99,9 +99,52 @@ func (c *Config) Load() error {
 	return nil
 }
 
+// New creates a new Config instance
+func New(filePath string) *Config {
+	var markerDir string
+	if filePath == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "/var/home/core" // Fallback for CoreOS
+		}
+		filePath = filepath.Join(home, ".homelab-setup.conf")
+		markerDir = filepath.Join(home, ".local", "homelab-setup")
+	} else {
+		// If custom config path provided, use adjacent directory for markers
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "/var/home/core"
+		}
+		markerDir = filepath.Join(home, ".local", "homelab-setup")
+	}
+
+	return &Config{
+		filePath:  filePath,
+		markerDir: markerDir,
+		data:      make(map[string]string),
+	}
+}
+
+// Load reads configuration from file
+func (c *Config) Load() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.loadFromDiskLocked()
+}
+
 // Save writes configuration to file using atomic write pattern
 // This prevents data loss if the write operation fails midway
 func (c *Config) Save() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.saveLocked()
+}
+
+// saveLocked writes configuration to disk. Caller must hold at least a read
+// lock to ensure a consistent view of c.data.
+func (c *Config) saveLocked() error {
 	// Ensure directory exists
 	dir := filepath.Dir(c.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -153,12 +196,12 @@ func (c *Config) Save() error {
 
 // Get retrieves a configuration value (thread-safe)
 func (c *Config) Get(key string) (string, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	if err := c.ensureLoaded(); err != nil {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	value, exists := c.data[key]
 	if !exists {
 		return "", fmt.Errorf("config key not found: %s", key)
@@ -169,12 +212,12 @@ func (c *Config) Get(key string) (string, error) {
 // GetOrDefault retrieves a value or returns default if not found (thread-safe)
 // First checks the config, then the Defaults table, then the provided fallback
 func (c *Config) GetOrDefault(key, defaultValue string) string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	if err := c.ensureLoaded(); err != nil {
 		return defaultValue
 	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if value, exists := c.data[key]; exists {
 		return value
 	}
@@ -192,37 +235,34 @@ func (c *Config) Set(key, value string) error {
 	defer c.mu.Unlock()
 
 	// Load existing configuration first to avoid overwriting
-	// Note: We're holding c.mu.Lock, so calling c.Load() directly is safe
-	if !c.loaded {
-		if err := c.Load(); err != nil {
-			return fmt.Errorf("failed to load existing config before set: %w", err)
-		}
+	if err := c.loadIfNeededLocked(); err != nil {
+		return fmt.Errorf("failed to load existing config before set: %w", err)
 	}
 
 	c.data[key] = value
-	return c.Save()
+	return c.saveLocked()
 }
 
 // Exists checks if a key exists (thread-safe)
 func (c *Config) Exists(key string) bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	if err := c.ensureLoaded(); err != nil {
 		return false
 	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	_, exists := c.data[key]
 	return exists
 }
 
 // GetAll returns all configuration data (thread-safe)
 func (c *Config) GetAll() map[string]string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	if err := c.ensureLoaded(); err != nil {
 		return map[string]string{}
 	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	// Return a copy to prevent external modification
 	result := make(map[string]string, len(c.data))
 	for k, v := range c.data {
@@ -238,14 +278,12 @@ func (c *Config) Delete(key string) error {
 	defer c.mu.Unlock()
 
 	// Load existing configuration first to avoid overwriting
-	if !c.loaded {
-		if err := c.Load(); err != nil {
-			return fmt.Errorf("failed to load existing config before delete: %w", err)
-		}
+	if err := c.loadIfNeededLocked(); err != nil {
+		return fmt.Errorf("failed to load existing config before delete: %w", err)
 	}
 
 	delete(c.data, key)
-	return c.Save()
+	return c.saveLocked()
 }
 
 // FilePath returns the configuration file path
