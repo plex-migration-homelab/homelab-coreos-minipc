@@ -46,8 +46,8 @@ Prefer to drive everything yourself? Run through these steps:
 2. **Directory layout:** build `/srv/containers/` for compose files and `/var/lib/containers/appdata/` for persistent data. Ensure ownership matches the service account.
 3. **WireGuard:** use `config/wireguard/wg0.conf.template`, drop the final config in `/etc/wireguard/wg0.conf`, and enable `systemctl enable --now wg-quick@wg0`.
 4. **NFS mounts:** add exports to `/etc/fstab` or install the provided `.mount` units under `/etc/systemd/system/`.
-5. **Compose stacks:** copy templates from `~/setup/compose-setup/`, edit `.env` files with secrets, and start the systemd units (`podman-compose-media.service`, etc.).
-6. **Verification:** `podman ps`, `sudo systemctl status podman-compose-*.service`, and `mount | grep /mnt/nas` should all look clean.
+5. **Compose stacks:** copy templates from `~/setup/compose-setup/`, edit `.env` files with secrets, and start the user systemd units (services are now created in `~/.config/systemd/user/` and managed with `systemctl --user`).
+6. **Verification:** `podman ps`, `sudo -u containeruser systemctl --user status podman-compose-*.service`, and `mount | grep /mnt/nas` should all look clean.
 
 ## Common passwords + URLs
 | Service | Default port | Notes |
@@ -61,7 +61,12 @@ Prefer to drive everything yourself? Run through these steps:
 ## Troubleshooting cheats
 ```bash
 homelab-setup troubleshoot        # Run the bundled diagnostics
-sudo journalctl -u podman-compose-media.service -f
+
+# For user services (compose stacks)
+sudo -u containeruser systemctl --user status podman-compose-media.service
+sudo -u containeruser journalctl --user -u podman-compose-media.service -f
+
+# For system services (mounts, VPN)
 sudo systemctl status mnt-nas-media.mount
 wg show
 ```

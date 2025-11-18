@@ -210,3 +210,286 @@ func RunSystemCommand(command string, args ...string) error {
 	}
 	return nil
 }
+
+// User Service Functions (for rootless container services)
+
+// UserServiceExists checks if a user systemd service unit file exists
+func UserServiceExists(username, serviceName string) (bool, error) {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return false, err
+	}
+
+	// User services are in ~/.config/systemd/user/
+	serviceDir := filepath.Join(userInfo.HomeDir, ".config", "systemd", "user")
+	servicePath := filepath.Join(serviceDir, serviceName)
+
+	if _, err := os.Stat(servicePath); err == nil {
+		return true, nil
+	} else if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("error checking user service at %s: %w", servicePath, err)
+}
+
+// GetUserServiceLocation returns the path to a user service unit file
+func GetUserServiceLocation(username, serviceName string) (string, error) {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return "", err
+	}
+
+	serviceDir := filepath.Join(userInfo.HomeDir, ".config", "systemd", "user")
+	servicePath := filepath.Join(serviceDir, serviceName)
+
+	if _, err := os.Stat(servicePath); err == nil {
+		return servicePath, nil
+	}
+
+	return "", fmt.Errorf("user service %s not found for user %s", serviceName, username)
+}
+
+// IsUserServiceActive checks if a user service is currently active
+func IsUserServiceActive(username, serviceName string) (bool, error) {
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "is-active", "--quiet", serviceName)
+	err := cmd.Run()
+
+	if err == nil {
+		return true, nil
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		if exitErr.ExitCode() != 0 {
+			return false, nil
+		}
+	}
+
+	return false, fmt.Errorf("failed to check user service status: %w", err)
+}
+
+// IsUserServiceEnabled checks if a user service is enabled to start on boot
+func IsUserServiceEnabled(username, serviceName string) (bool, error) {
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "is-enabled", "--quiet", serviceName)
+	err := cmd.Run()
+
+	if err == nil {
+		return true, nil
+	}
+
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		if exitErr.ExitCode() != 0 {
+			return false, nil
+		}
+	}
+
+	return false, fmt.Errorf("failed to check if user service is enabled: %w", err)
+}
+
+// EnableUserService enables a user service to start on boot
+func EnableUserService(username, serviceName string) error {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "enable", serviceName)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to enable user service %s for %s: %w\nOutput: %s", serviceName, username, err, string(output))
+	}
+	return nil
+}
+
+// DisableUserService disables a user service from starting on boot
+func DisableUserService(username, serviceName string) error {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "disable", serviceName)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to disable user service %s for %s: %w\nOutput: %s", serviceName, username, err, string(output))
+	}
+	return nil
+}
+
+// StartUserService starts a user service
+func StartUserService(username, serviceName string) error {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "start", serviceName)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to start user service %s for %s: %w\nOutput: %s", serviceName, username, err, string(output))
+	}
+	return nil
+}
+
+// StopUserService stops a user service
+func StopUserService(username, serviceName string) error {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "stop", serviceName)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to stop user service %s for %s: %w\nOutput: %s", serviceName, username, err, string(output))
+	}
+	return nil
+}
+
+// RestartUserService restarts a user service
+func RestartUserService(username, serviceName string) error {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "restart", serviceName)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to restart user service %s for %s: %w\nOutput: %s", serviceName, username, err, string(output))
+	}
+	return nil
+}
+
+// UserSystemdDaemonReload reloads user systemd manager configuration
+func UserSystemdDaemonReload(username string) error {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "daemon-reload")
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to reload user systemd daemon for %s: %w\nOutput: %s", username, err, string(output))
+	}
+	return nil
+}
+
+// GetUserServiceStatus returns the status output for a user service
+func GetUserServiceStatus(username, serviceName string) (string, error) {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return "", err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return "", err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "systemctl", "--user", "status", serviceName, "--no-pager", "-l")
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+
+	// Note: systemctl status returns non-zero for inactive services
+	// We still want the output in that case
+	return string(output), err
+}
+
+// GetUserServiceJournalLogs returns recent journal logs for a user service
+func GetUserServiceJournalLogs(username, serviceName string, lines int) (string, error) {
+	userInfo, err := GetUserInfo(username)
+	if err != nil {
+		return "", err
+	}
+
+	uid, err := GetUID(username)
+	if err != nil {
+		return "", err
+	}
+
+	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
+
+	cmd := exec.Command("sudo", "-u", username, "journalctl", "--user", "-u", serviceName, "-n", fmt.Sprintf("%d", lines), "--no-pager")
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("XDG_RUNTIME_DIR=%s", runtimeDir),
+		fmt.Sprintf("HOME=%s", userInfo.HomeDir),
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user service logs for %s: %w", serviceName, err)
+	}
+	return string(output), nil
+}

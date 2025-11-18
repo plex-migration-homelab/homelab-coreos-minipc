@@ -470,3 +470,86 @@ func IsMount(path string) (bool, error) {
 	// If the device IDs are different, it's a mount point
 	return pathStatT.Dev != parentStatT.Dev, nil
 }
+
+// CreateDirectoryAsUser creates a directory with specified owner and permissions as a user
+// This is useful for creating directories in user home directories
+func CreateDirectoryAsUser(path string, owner string, group string, perms os.FileMode) error {
+	// Check if directory exists
+	if info, err := os.Stat(path); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("%s exists but is not a directory", path)
+		}
+		// Directory exists, ensure correct ownership
+		ownerGroup := fmt.Sprintf("%s:%s", owner, group)
+		if err := Chown(path, ownerGroup); err != nil {
+			return fmt.Errorf("failed to set ownership on existing directory %s: %w", path, err)
+		}
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to check directory %s: %w", path, err)
+	}
+
+	// Create directory with sudo
+	cmd := exec.Command("sudo", "-n", "mkdir", "-p", path)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w\nOutput: %s", path, err, string(output))
+	}
+
+	// Set ownership
+	ownerGroup := fmt.Sprintf("%s:%s", owner, group)
+	if err := Chown(path, ownerGroup); err != nil {
+		return fmt.Errorf("failed to set ownership on %s: %w", path, err)
+	}
+
+	// Set permissions
+	if err := Chmod(path, perms); err != nil {
+		return fmt.Errorf("failed to set permissions on %s: %w", path, err)
+	}
+
+	return nil
+}
+
+// WriteFileAsUser writes content to a file with specified owner and permissions
+// This is useful for creating files in user home directories
+func WriteFileAsUser(path string, content []byte, owner string, group string, perms os.FileMode) error {
+	// Create temporary file
+	tmpFile, err := os.CreateTemp("", "homelab-setup-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	// Write content to temp file
+	if _, err := tmpFile.Write(content); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write to temp file: %w", err)
+	}
+	tmpFile.Close()
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := CreateDirectoryAsUser(dir, owner, group, 0755); err != nil {
+		return fmt.Errorf("failed to ensure parent directory exists: %w", err)
+	}
+
+	// Move temp file to target with sudo
+	cmd := exec.Command("sudo", "-n", "mv", tmpPath, path)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to move file to %s: %w\nOutput: %s", path, err, string(output))
+	}
+
+	// Set ownership
+	ownerGroup := fmt.Sprintf("%s:%s", owner, group)
+	if err := Chown(path, ownerGroup); err != nil {
+		return fmt.Errorf("failed to set ownership on %s: %w", path, err)
+	}
+
+	// Set permissions
+	return Chmod(path, perms)
+}
+
+// CreateDirectory is an alias for backwards compatibility
+func CreateDirectory(path string, owner string, group string, perms os.FileMode) error {
+	return CreateDirectoryAsUser(path, owner, group, perms)
+}

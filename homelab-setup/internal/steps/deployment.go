@@ -54,13 +54,18 @@ func getSelectedServices(cfg *config.Config) ([]string, error) {
 	return services, nil
 }
 
-// checkExistingService checks if a systemd service exists
+// checkExistingService checks if a user systemd service exists
 func checkExistingService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) (bool, error) {
 	ui.Infof("Checking for service: %s", serviceInfo.UnitName)
 
-	exists, err := system.ServiceExists(serviceInfo.UnitName)
+	serviceUser, err := getServiceUser(cfg)
 	if err != nil {
-		return false, fmt.Errorf("failed to check service: %w", err)
+		return false, err
+	}
+
+	exists, err := system.UserServiceExists(serviceUser, serviceInfo.UnitName)
+	if err != nil {
+		return false, fmt.Errorf("failed to check user service: %w", err)
 	}
 
 	if exists {
@@ -85,29 +90,31 @@ func getRuntimeFromConfig(cfg *config.Config) (system.ContainerRuntime, error) {
 	}
 }
 
-// createComposeService creates a systemd service for docker-compose/podman-compose
+// createComposeService creates a user systemd service for docker-compose/podman-compose
 func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
-	ui.Infof("Creating systemd service: %s", serviceInfo.UnitName)
+	ui.Infof("Creating user systemd service: %s", serviceInfo.UnitName)
 
 	serviceUser, err := getServiceUser(cfg)
 	if err != nil {
 		return err
 	}
 
+	// Ensure lingering is enabled for rootless service
 	lingerEnabled, err := system.IsLingerEnabled(serviceUser)
 	if err != nil {
 		return fmt.Errorf("failed to check lingering for %s: %w", serviceUser, err)
 	}
 
 	if !lingerEnabled {
-		ui.Infof("Enabling lingering for %s so /run/user is available for rootless compose", serviceUser)
+		ui.Infof("Enabling lingering for %s so user services persist after logout", serviceUser)
 		if err := system.EnableLinger(serviceUser); err != nil {
 			return err
 		}
 		ui.Successf("Enabled lingering for %s", serviceUser)
 	}
 
-	runtimeDir, err := system.EnsureUserRuntimeDir(serviceUser)
+	// Ensure runtime directory exists
+	_, err = system.EnsureUserRuntimeDir(serviceUser)
 	if err != nil {
 		return fmt.Errorf("failed to prepare runtime directory for %s: %w", serviceUser, err)
 	}
@@ -125,7 +132,19 @@ func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInf
 
 	ui.Infof("Using compose command: %s", composeCmd)
 
-	// Create service unit content
+	// Get user home directory
+	userInfo, err := system.GetUserInfo(serviceUser)
+	if err != nil {
+		return fmt.Errorf("failed to get user info: %w", err)
+	}
+
+	// Ensure user service directory exists
+	serviceDir := filepath.Join(userInfo.HomeDir, ".config", "systemd", "user")
+	if err := system.CreateDirectoryAsUser(serviceDir, serviceUser, serviceUser, 0755); err != nil {
+		return fmt.Errorf("failed to create user service directory: %w", err)
+	}
+
+	// Create user service unit content (no User=/Group= needed for user services)
 	unitContent := fmt.Sprintf(`[Unit]
 Description=Homelab %s Stack
 Wants=network-online.target
@@ -133,9 +152,6 @@ After=network-online.target
 RequiresMountsFor=%s
 
 [Service]
-User=%s
-Group=%s
-Environment="XDG_RUNTIME_DIR=%s"
 Type=oneshot
 RemainAfterExit=true
 WorkingDirectory=%s
@@ -145,24 +161,23 @@ ExecStop=%s down
 TimeoutStartSec=600
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
 `, serviceInfo.DisplayName, serviceInfo.Directory,
-		serviceUser, serviceUser, runtimeDir,
 		serviceInfo.Directory,
 		composeCmd, composeCmd, composeCmd)
 
-	// Write service file
-	unitPath := filepath.Join("/etc/systemd/system", serviceInfo.UnitName)
-	if err := system.WriteFile(unitPath, []byte(unitContent), 0644); err != nil {
-		return fmt.Errorf("failed to write service file: %w", err)
+	// Write service file to user service directory
+	unitPath := filepath.Join(serviceDir, serviceInfo.UnitName)
+	if err := system.WriteFileAsUser(unitPath, []byte(unitContent), serviceUser, serviceUser, 0644); err != nil {
+		return fmt.Errorf("failed to write user service file: %w", err)
 	}
 
-	ui.Successf("Created service unit: %s", unitPath)
+	ui.Successf("Created user service unit: %s", unitPath)
 
-	// Reload systemd daemon
-	ui.Info("Reloading systemd daemon...")
-	if err := system.SystemdDaemonReload(); err != nil {
-		ui.Warning(fmt.Sprintf("Failed to reload daemon: %v", err))
+	// Reload user systemd daemon
+	ui.Info("Reloading user systemd daemon...")
+	if err := system.UserSystemdDaemonReload(serviceUser); err != nil {
+		ui.Warning(fmt.Sprintf("Failed to reload user daemon: %v", err))
 		// Non-critical, continue
 	}
 
@@ -231,21 +246,26 @@ func pullImages(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
 	return nil
 }
 
-// enableAndStartService enables and starts a systemd service
+// enableAndStartService enables and starts a user systemd service
 func enableAndStartService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
 	ui.Step(fmt.Sprintf("Enabling and Starting %s Service", serviceInfo.DisplayName))
 
-	// Enable service
-	ui.Infof("Enabling service: %s", serviceInfo.UnitName)
-	if err := system.EnableService(serviceInfo.UnitName); err != nil {
-		return fmt.Errorf("failed to enable service: %w", err)
+	serviceUser, err := getServiceUser(cfg)
+	if err != nil {
+		return err
+	}
+
+	// Enable user service
+	ui.Infof("Enabling user service: %s", serviceInfo.UnitName)
+	if err := system.EnableUserService(serviceUser, serviceInfo.UnitName); err != nil {
+		return fmt.Errorf("failed to enable user service: %w", err)
 	}
 	ui.Success("Service enabled")
 
-	// Start service
-	ui.Infof("Starting service: %s", serviceInfo.UnitName)
-	if err := system.StartService(serviceInfo.UnitName); err != nil {
-		return fmt.Errorf("failed to start service: %w", err)
+	// Start user service
+	ui.Infof("Starting user service: %s", serviceInfo.UnitName)
+	if err := system.StartUserService(serviceUser, serviceInfo.UnitName); err != nil {
+		return fmt.Errorf("failed to start user service: %w", err)
 	}
 	ui.Success("Service started")
 
@@ -356,33 +376,41 @@ func displayManagementInfo(cfg *config.Config, ui *ui.UI) {
 	ui.Print("")
 
 	selectedServices, _ := getSelectedServices(cfg)
+	serviceUser := cfg.GetOrDefault("HOMELAB_USER", "dockeruser")
+
+	ui.Infof("Services are running as user: %s", serviceUser)
+	ui.Info("Use these commands to manage your services:")
+	ui.Print("")
 
 	ui.Info("Start services:")
 	for _, service := range selectedServices {
 		serviceInfo := getServiceInfo(cfg, service)
-		ui.Printf("  sudo systemctl start %s", serviceInfo.UnitName)
+		ui.Printf("  sudo -u %s systemctl --user start %s", serviceUser, serviceInfo.UnitName)
 	}
 	ui.Print("")
 
 	ui.Info("Stop services:")
 	for _, service := range selectedServices {
 		serviceInfo := getServiceInfo(cfg, service)
-		ui.Printf("  sudo systemctl stop %s", serviceInfo.UnitName)
+		ui.Printf("  sudo -u %s systemctl --user stop %s", serviceUser, serviceInfo.UnitName)
 	}
 	ui.Print("")
 
 	ui.Info("Check service status:")
 	for _, service := range selectedServices {
 		serviceInfo := getServiceInfo(cfg, service)
-		ui.Printf("  sudo systemctl status %s", serviceInfo.UnitName)
+		ui.Printf("  sudo -u %s systemctl --user status %s", serviceUser, serviceInfo.UnitName)
 	}
 	ui.Print("")
 
 	ui.Info("View service logs:")
 	for _, service := range selectedServices {
 		serviceInfo := getServiceInfo(cfg, service)
-		ui.Printf("  sudo journalctl -u %s -f", serviceInfo.UnitName)
+		ui.Printf("  sudo -u %s journalctl --user -u %s -f", serviceUser, serviceInfo.UnitName)
 	}
+	ui.Print("")
+
+	ui.Info("Note: User services persist after logout thanks to loginctl linger")
 	ui.Print("")
 }
 
