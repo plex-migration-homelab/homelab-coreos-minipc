@@ -70,6 +70,7 @@ homelab-setup troubleshoot
 - Container stack setup uses the same account to own compose files and `.env` secrets.
 - Generated systemd units for docker/podman compose run as this user so rootless services can read the files they manage.
 - Units export `XDG_RUNTIME_DIR=/run/user/%U` so rootless podman/docker-compose can reach the user runtime socket and state paths.
+- Setup enables `loginctl enable-linger` for the service user and pre-creates `/run/user/<uid>` so compose can start at boot even before the user logs in.
 - If you need to change the service user, re-run the User Setup step before rebuilding container stacks and services.
 
 ## Requirements
