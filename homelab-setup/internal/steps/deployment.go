@@ -137,6 +137,13 @@ func formatComposeCommandForSystemd(composeCmd string) string {
 
 // createComposeService creates a systemd service for docker-compose
 // Creates system-level units that depend on docker.service and NFS mounts
+//
+// IMPORTANT SECURITY MODEL:
+// - Systemd service runs as ROOT (no User= directive) to access Docker socket
+// - Docker daemon runs as root (system service)
+// - Containers run as UNPRIVILEGED USER via PUID/PGID environment variables
+// - Security boundary is at the CONTAINER level, not the service level
+// - This is the standard Docker security model used in production
 func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) error {
 	ui.Infof("Creating systemd service: %s", serviceInfo.UnitName)
 
@@ -211,7 +218,9 @@ After=%s
 		preExecChecks = fmt.Sprintf("ExecStartPre=/usr/bin/findmnt %s\n", nfsMountPoint)
 	}
 
-	// Docker: system-level service (no User= directive)
+	// Docker: system-level service (no User= directive - runs as root)
+	// This is REQUIRED for Docker socket access at /var/run/docker.sock
+	// Containers will run as unprivileged user via PUID/PGID from .env files
 	preExecChecks += fmt.Sprintf("ExecStartPre=%s pull --quiet\n", execComposeCmd)
 
 	serviceSection := fmt.Sprintf(`[Service]
@@ -373,6 +382,32 @@ func verifyContainers(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInfo) e
 		ui.Successf("Found %d running container(s):", len(serviceContainers))
 		for _, container := range serviceContainers {
 			ui.Printf("  - %s", container)
+		}
+
+		// Verify containers are running as correct UID (security check)
+		expectedPUID := cfg.GetOrDefault("PUID", "1000")
+		ui.Info("Verifying container user IDs (security check)...")
+
+		for _, container := range serviceContainers {
+			// Check what UID the main process is running as
+			cmd := exec.Command("docker", "exec", container, "id", "-u")
+			output, err := cmd.Output()
+			if err != nil {
+				ui.Infof("  - %s: Could not check UID (%v)", container, err)
+				continue
+			}
+
+			actualUID := strings.TrimSpace(string(output))
+
+			if actualUID == "0" {
+				ui.Error(fmt.Sprintf("  - %s: SECURITY WARNING - Running as ROOT (UID 0)", container))
+				ui.Info("    Check that PUID/PGID are set in .env file")
+				ui.Info("    Check that container image supports PUID/PGID")
+			} else if actualUID == expectedPUID {
+				ui.Successf("  - %s: Running as UID %s ✓", container, actualUID)
+			} else {
+				ui.Warningf("  - %s: Running as UID %s (expected %s)", container, actualUID, expectedPUID)
+			}
 		}
 	} else {
 		ui.Warning("No containers found for this service")
