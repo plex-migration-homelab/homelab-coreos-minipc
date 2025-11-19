@@ -245,6 +245,119 @@ func selectStacks(cfg *config.Config, ui *ui.UI, stacks map[string]string) ([]st
 	return selected, nil
 }
 
+// shouldSkipVolumeForSELinux returns true if a volume should not have :Z label
+func shouldSkipVolumeForSELinux(volumeLine string) bool {
+	// Already has SELinux label
+	if strings.Contains(volumeLine, ":Z") || strings.Contains(volumeLine, ":z") {
+		return true
+	}
+
+	// Read-only volumes don't need :Z
+	if strings.Contains(volumeLine, ":ro") {
+		return true
+	}
+
+	// Docker socket - always read-only, no :Z
+	if strings.Contains(volumeLine, "/var/run/docker.sock") {
+		return true
+	}
+
+	// Device mounts - no SELinux labeling
+	if strings.Contains(volumeLine, "/dev/") {
+		return true
+	}
+
+	// NFS mounts - NFS doesn't support SELinux labeling, must be :ro
+	if strings.Contains(volumeLine, "/mnt/nas") ||
+		strings.Contains(volumeLine, "/var/mnt/nas") ||
+		strings.Contains(volumeLine, ":/media") {
+		return true
+	}
+
+	return false
+}
+
+// addSELinuxLabelsToComposeFiles adds :Z labels to writable volumes in compose files
+// This is CRITICAL for Fedora CoreOS which runs with SELinux enforcing
+func addSELinuxLabelsToComposeFiles(cfg *config.Config, ui *ui.UI, selectedStacks []string) error {
+	ui.Info("Fedora CoreOS requires SELinux labels on all writable volumes")
+	ui.Info("Adding :Z labels to volume mounts...")
+
+	containersBase := getContainersBase(cfg)
+	totalModified := 0
+
+	for _, serviceName := range selectedStacks {
+		composeFile := filepath.Join(containersBase, serviceName, "compose.yml")
+
+		content, err := os.ReadFile(composeFile)
+		if err != nil {
+			ui.Warning(fmt.Sprintf("Could not read %s: %v", composeFile, err))
+			continue
+		}
+
+		originalContent := string(content)
+		lines := strings.Split(originalContent, "\n")
+		modified := false
+		modifiedCount := 0
+
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+
+			// Look for volume mount lines (start with "- " and contain ":")
+			if !strings.HasPrefix(trimmed, "- ") || !strings.Contains(trimmed, ":") {
+				continue
+			}
+
+			volumeDef := strings.TrimPrefix(trimmed, "- ")
+
+			// Skip if this volume doesn't need :Z
+			if shouldSkipVolumeForSELinux(volumeDef) {
+				continue
+			}
+
+			// Add :Z to the volume mount
+			// Handle both "source:dest" and "source:dest:options" formats
+			parts := strings.Split(volumeDef, ":")
+			if len(parts) >= 2 {
+				// Add :Z at the end
+				newVolumeDef := volumeDef + ":Z"
+				lines[i] = strings.Replace(line, volumeDef, newVolumeDef, 1)
+				modified = true
+				modifiedCount++
+				ui.Infof("  [%s] Added :Z to: %s", serviceName, volumeDef)
+			}
+		}
+
+		if modified {
+			// Create backup before modifying
+			backupPath := composeFile + ".pre-selinux"
+			if err := os.WriteFile(backupPath, []byte(originalContent), 0644); err != nil {
+				ui.Warning(fmt.Sprintf("Could not create backup for %s: %v", serviceName, err))
+			}
+
+			// Write modified content
+			modifiedContent := strings.Join(lines, "\n")
+			if err := os.WriteFile(composeFile, []byte(modifiedContent), 0644); err != nil {
+				return fmt.Errorf("failed to update %s: %w", composeFile, err)
+			}
+
+			ui.Successf("[%s] Added %d SELinux label(s)", serviceName, modifiedCount)
+			totalModified += modifiedCount
+		} else {
+			ui.Info(fmt.Sprintf("[%s] No modifications needed", serviceName))
+		}
+	}
+
+	if totalModified > 0 {
+		ui.Success(fmt.Sprintf("✓ Added %d SELinux label(s) total", totalModified))
+		ui.Info("Backups created with .pre-selinux extension")
+	} else {
+		ui.Success("All compose files already have proper SELinux labels")
+	}
+
+	return nil
+}
+
 // copyTemplates copies selected compose templates to destination
 func copyTemplates(cfg *config.Config, ui *ui.UI, templateDir string, stacks map[string]string, selectedStacks []string) error {
 	ui.Step("Copying Compose Templates")
@@ -292,6 +405,16 @@ func copyTemplates(cfg *config.Config, ui *ui.UI, templateDir string, stacks map
 	}
 
 	ui.Successf("Copied %d compose file(s)", len(selectedStacks))
+
+	// CRITICAL: Add SELinux labels to copied compose files
+	// Fedora CoreOS runs with SELinux enforcing - volumes need :Z labels
+	ui.Print("")
+	ui.Step("Adding SELinux Labels to Compose Files")
+	if err := addSELinuxLabelsToComposeFiles(cfg, ui, selectedStacks); err != nil {
+		ui.Warning(fmt.Sprintf("SELinux label addition had issues: %v", err))
+		ui.Info("You may need to manually add :Z labels to writable volumes")
+	}
+
 	return nil
 }
 
@@ -602,6 +725,14 @@ TZ=%s
 
 # Paths
 APPDATA_PATH=%s
+
+# SELINUX REQUIREMENTS (Fedora CoreOS runs with SELinux ENFORCING)
+# All writable volumes in compose.yml MUST have :Z label
+# Example: ${APPDATA_PATH}/app:/config:Z
+# Read-only volumes use :ro instead
+# NFS mounts should ONLY be :ro (NFS doesn't support SELinux labeling)
+# Without :Z labels, containers cannot write to mounted volumes
+# The homelab-setup tool automatically adds :Z labels during deployment
 
 `, caser.String(serviceName), puid, pgid, tz, appdataPath)
 
