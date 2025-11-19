@@ -12,9 +12,9 @@ BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Build flags
 LDFLAGS=-ldflags "\
-	-X github.com/zoro11031/homelab-coreos-minipc/homelab-setup/pkg/version.Version=$(VERSION) \
-	-X github.com/zoro11031/homelab-coreos-minipc/homelab-setup/pkg/version.GitCommit=$(GIT_COMMIT) \
-	-X github.com/zoro11031/homelab-coreos-minipc/homelab-setup/pkg/version.BuildDate=$(BUILD_DATE)"
+	-X github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/pkg/version.Version=$(VERSION) \
+	-X github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/pkg/version.GitCommit=$(GIT_COMMIT) \
+	-X github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/pkg/version.BuildDate=$(BUILD_DATE)"
 
 ## build: Build the binary
 build:

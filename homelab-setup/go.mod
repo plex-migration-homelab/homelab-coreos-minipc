@@ -1,4 +1,4 @@
-module github.com/zoro11031/homelab-coreos-minipc/homelab-setup
+module github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup
 
 go 1.23.3
 

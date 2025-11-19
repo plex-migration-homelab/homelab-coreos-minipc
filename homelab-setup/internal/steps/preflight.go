@@ -3,9 +3,9 @@ package steps
 import (
 	"fmt"
 
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
+	"github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/config"
+	"github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/system"
+	"github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
 const preflightCompletionMarker = "preflight-complete"

@@ -92,7 +92,7 @@ homelab-coreos-minipc/
 
 - **GitHub Actions**: Image builds, binary compilation
 - **Cosign**: Image signing (optional, via secrets)
-- **GHCR**: GitHub Container Registry (`ghcr.io/zoro11031/homelab-coreos-minipc`)
+- **GHCR**: GitHub Container Registry (`ghcr.io/plex-migration-homelab/homelab-coreos-minipc`)
 
 ---
 
@@ -273,7 +273,7 @@ ui.Info("Information message")
 **Always validate user input** using `internal/common` validators:
 
 ```go
-import "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/common"
+import "github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/common"
 
 // IP addresses (IPv4 only)
 if err := common.ValidateIP("192.168.1.1"); err != nil {
@@ -422,7 +422,7 @@ modules:
 - **Manual**: `workflow_dispatch`
 
 **Build Output**:
-- Registry: `ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+- Registry: `ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest`
 - Tags: `latest`, git commit SHA
 - Signing: Cosign (if `SIGNING_SECRET` set)
 
@@ -565,7 +565,7 @@ ui.Success("Done!")
 ### 2. Configuration Pattern
 
 ```go
-import "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
+import "github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/config"
 
 // Load config
 cfg, err := config.NewConfig("~/.homelab-setup.conf")

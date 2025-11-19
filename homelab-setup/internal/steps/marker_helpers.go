@@ -1,6 +1,6 @@
 package steps
 
-import "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
+import "github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/config"
 
 // ensureCanonicalMarker checks for the canonical completion marker and migrates any legacy markers
 // to the canonical name to maintain backward compatibility.

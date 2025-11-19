@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
+	"github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/config"
 )
 
 // TestFstabReplacement tests the fstab entry replacement logic

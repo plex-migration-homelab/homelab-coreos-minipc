@@ -9,9 +9,9 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
    - Fedora/RHEL, Debian, or Arch-based distro with `libvirt`, `virt-manager`, and `virt-install` packages installed.
    - Enough CPU (4 vCPU), RAM (12–16 GiB), and disk (80 GiB) to mirror the NAB9 mini PC footprint.
 2. **Download the image under test**
-   - Pull the latest build from GitHub Container Registry: `podman pull ghcr.io/<user>/homelab-coreos-minipc:latest`.
+   - Pull the latest build from GitHub Container Registry: `podman pull ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest`.
    - Export the container image as an OCI archive, unpack it, and convert it to a qcow2 disk in sequence:
-     1. `podman image save --format oci-archive ghcr.io/<user>/homelab-coreos-minipc:latest -o homelab-coreos-minipc-x86_64.oci`.
+     1. `podman image save --format oci-archive ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest -o homelab-coreos-minipc-x86_64.oci`.
      2. `mkdir -p /tmp/homelab-coreos-minipc && tar -xvf homelab-coreos-minipc-x86_64.oci -C /tmp/homelab-coreos-minipc` so the raw disk (`*.raw` or `disk`) from the archive is on disk.
      3. Run `coreos-installer install --architecture=x86_64 --image-file $(find /tmp/homelab-coreos-minipc -name '*.raw' -o -name 'disk' -print -quit) --ignition-file ignition/minipc.ign --copy-network --dest-device homelab-coreos-minipc-x86_64.qcow2` to embed ignition and produce the bootable qcow2; alternatively, stream the raw image into `virt-install --import` with the same ignition flags if you prefer a single pipeline.
    - Confirm the resulting qcow2 filename includes the architecture suffix (e.g., `homelab-coreos-minipc-x86_64.qcow2`) before attaching it in virt-manager so you catch any accidental ARM builds.
@@ -119,7 +119,7 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
    - Attach an extra qcow2 disk in virt-manager (virtio) to represent the production boot disk.
    - Use `podman volume export` and `tar` to capture application data into that disk.
 2. **rpm-ostree upgrade rehearsal**
-   - Trigger a rebase to the image under test: `sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/<user>/homelab-coreos-minipc:latest` (matches the recipe base in `recipes/recipe.yml`).【F:recipes/recipe.yml†L1-L17】
+   - Trigger a rebase to the image under test: `sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest` (matches the recipe base in `recipes/recipe.yml`).【F:recipes/recipe.yml†L1-L17】
    - Reboot and confirm `rpm-ostree status` shows the new deployment.
 3. **Rollback drill**
    - Run `sudo rpm-ostree rollback` to verify that the previous deployment remains available and stable.

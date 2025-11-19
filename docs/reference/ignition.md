@@ -108,13 +108,13 @@ The configuration includes two systemd services that handle automatic rebasing t
 
 **First Boot (Unsigned Rebase)**
 - The `ucore-unsigned-autorebase.service` runs on first boot
-- Rebases the system to `ostree-unverified-registry:ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+- Rebases the system to `ostree-unverified-registry:ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest`
 - Creates a marker file at `/etc/ucore-autorebase/unverified`
 - Disables itself and reboots
 
 **Second Boot (Signed Rebase)**
 - The `ucore-signed-autorebase.service` runs after the first reboot
-- Rebases the system to the signed image `ostree-image-signed:docker://ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+- Rebases the system to the signed image `ostree-image-signed:docker://ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest`
 - Creates a marker file at `/etc/ucore-autorebase/signed`
 - Disables itself and reboots
 
@@ -124,7 +124,7 @@ After these two automatic reboots, your system will be running the fully signed 
 
 ### Disabling the Automatic Rebase Units
 
-If you generate an ISO directly from the published image (e.g. `sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso image ghcr.io/zoro11031/homelab-coreos-minipc`) and embed this Ignition file before flashing, the machine already boots into the intended image on first launch. In that case the autorebase services are redundant and will only introduce two extra reboots. Remove them before running `transpile.sh`:
+If you generate an ISO directly from the published image (e.g. `sudo bluebuild generate-iso --iso-name homelab-coreos-minipc.iso image ghcr.io/plex-migration-homelab/homelab-coreos-minipc`) and embed this Ignition file before flashing, the machine already boots into the intended image on first launch. In that case the autorebase services are redundant and will only introduce two extra reboots. Remove them before running `transpile.sh`:
 
 1. Delete the `storage.directories` entry that creates `/etc/ucore-autorebase`.
 2. Remove both `ucore-unsigned-autorebase.service` and `ucore-signed-autorebase.service` from the `systemd.units` list.

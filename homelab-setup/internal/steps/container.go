@@ -10,9 +10,9 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/config"
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
-	"github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/ui"
+	"github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/config"
+	"github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/system"
+	"github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/ui"
 )
 
 const containerSetupCompletionMarker = "container-setup-complete"

@@ -282,8 +282,8 @@ cmd/homelab-setup/main.go          - Simple main with menu launch
        "fmt"
        "os"
 
-       "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/cli"
-       "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/pkg/version"
+       "github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/cli"
+       "github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/pkg/version"
    )
 
    func main() {
