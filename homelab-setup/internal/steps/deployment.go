@@ -625,13 +625,36 @@ func runDeploymentPreflight(cfg *config.Config, ui *ui.UI) error {
 			serviceInfo := getServiceInfo(cfg, serviceName)
 			composeFile := filepath.Join(serviceInfo.Directory, "compose.yml")
 			dockerComposeFile := filepath.Join(serviceInfo.Directory, "docker-compose.yml")
+			envFile := filepath.Join(serviceInfo.Directory, ".env")
+
+			// Check if service directory exists
+			dirExists, err := system.DirectoryExists(serviceInfo.Directory)
+			if err != nil {
+				ui.Warning(fmt.Sprintf("Failed to check directory %s: %v", serviceInfo.Directory, err))
+				continue
+			}
+			if !dirExists {
+				ui.Error(fmt.Sprintf("Service directory not found: %s", serviceInfo.Directory))
+				ui.Info("Run the container setup step first to create compose files and directories")
+				return fmt.Errorf("service directory not found: %s - run container setup step first", serviceInfo.Directory)
+			}
 
 			// Check if compose file exists
 			composeExists, _ := system.FileExists(composeFile)
 			dockerComposeExists, _ := system.FileExists(dockerComposeFile)
 
 			if !composeExists && !dockerComposeExists {
-				return fmt.Errorf("no compose file found in %s", serviceInfo.Directory)
+				ui.Error(fmt.Sprintf("No compose file found in %s", serviceInfo.Directory))
+				ui.Info("Run the container setup step first to create compose files")
+				return fmt.Errorf("no compose file found in %s - run container setup step first", serviceInfo.Directory)
+			}
+
+			// Check if .env file exists
+			envExists, _ := system.FileExists(envFile)
+			if !envExists {
+				ui.Warning(fmt.Sprintf("Environment file not found: %s", envFile))
+				ui.Infof("Compose file validation will be skipped for %s - .env file may be created during setup", serviceName)
+				continue // Skip validation if .env doesn't exist
 			}
 
 			// Validate compose file syntax
@@ -648,6 +671,8 @@ func runDeploymentPreflight(cfg *config.Config, ui *ui.UI) error {
 				_ = os.Chdir(originalDir) // Best effort to restore directory
 				ui.Error(fmt.Sprintf("Compose file validation failed for %s", serviceName))
 				ui.Error(fmt.Sprintf("Output: %s", string(output)))
+				ui.Info("This may be due to missing environment variables or incorrect compose file syntax")
+				ui.Info("Check the compose file and .env file in: " + serviceInfo.Directory)
 				return fmt.Errorf("invalid compose file in %s: %w", serviceInfo.Directory, err)
 			}
 
