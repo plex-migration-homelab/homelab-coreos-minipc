@@ -590,7 +590,7 @@ markers.MarkComplete("preflight")
 ### 3. System Operations Pattern
 
 ```go
-import "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/system"
+import "github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/system"
 
 // Check sudo
 if !system.HasSudo() {
@@ -617,7 +617,7 @@ if err := system.EnableService("wg-quick@wg0"); err != nil {
 ### 4. Setup Step Pattern
 
 ```go
-import "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/steps"
+import "github.com/plex-migration-homelab/homelab-coreos-minipc/homelab-setup/internal/steps"
 
 // Each step implements this interface
 type Step interface {
