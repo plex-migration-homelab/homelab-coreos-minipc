@@ -110,41 +110,47 @@ func checkRequiredPackages(ui *ui.UI) error {
 	return nil
 }
 
-// checkContainerRuntime verifies a container runtime is available
-func checkContainerRuntime(ui *ui.UI) error {
+// checkContainerRuntime verifies Docker is available and configured
+func checkContainerRuntime(cfg *config.Config, ui *ui.UI) error {
 	ui.Info("Checking container runtime...")
 
-	// Check for podman first (preferred)
-	if system.CommandExists("podman") {
-		ui.Success("  ✓ Podman is available")
+	// Check if Docker service is active
+	if err := system.CheckDockerService(); err != nil {
+		ui.Error("  ✗ docker.service is not active")
+		ui.Info("Docker must be running. Start it with:")
+		ui.Info("  sudo systemctl start docker.service")
+		ui.Info("  sudo systemctl enable docker.service")
+		return fmt.Errorf("docker.service is not active")
+	}
+	ui.Success("  ✓ Docker service is available")
 
-		// Check for podman-compose
-		if system.CommandExists("podman-compose") {
-			ui.Success("  ✓ podman-compose is available")
-		} else {
-			ui.Warning("  podman-compose not found (can be installed later)")
+	// Check for Docker Compose (prefer V2 plugin, fallback to V1)
+	if err := system.CheckDockerComposeV2(); err == nil {
+		ui.Success("  ✓ Docker Compose V2 (docker compose) is available")
+		if err := cfg.Set(config.KeyComposeCommand, "docker compose"); err != nil {
+			ui.Warning("Failed to save compose command to config")
 		}
-		return nil
+	} else if err := system.CheckDockerComposeV1(); err == nil {
+		ui.Success("  ✓ Docker Compose V1 (docker-compose) is available")
+		if err := cfg.Set(config.KeyComposeCommand, "docker-compose"); err != nil {
+			ui.Warning("Failed to save compose command to config")
+		}
+	} else {
+		ui.Error("  ✗ Docker Compose is not available")
+		ui.Info("Install Docker Compose V2 (preferred):")
+		ui.Info("  Follow: https://docs.docker.com/compose/install/")
+		ui.Info("Or install V1 standalone:")
+		ui.Info("  sudo rpm-ostree install docker-compose")
+		ui.Info("  sudo systemctl reboot")
+		return fmt.Errorf("docker compose not available")
 	}
 
-	// Check for docker as fallback
-	if system.CommandExists("docker") {
-		ui.Success("  ✓ Docker is available")
-
-		// Check for docker-compose
-		if system.CommandExists("docker-compose") {
-			ui.Success("  ✓ docker-compose is available")
-		} else {
-			ui.Warning("  docker-compose not found (can be installed later)")
-		}
-		return nil
+	// Set runtime in config
+	if err := cfg.Set(config.KeyContainerRuntime, "docker"); err != nil {
+		ui.Warning("Failed to save container runtime to config")
 	}
 
-	ui.Error("No container runtime found (podman or docker required)")
-	ui.Info("To install podman:")
-	ui.Info("  sudo rpm-ostree install podman podman-compose")
-	ui.Info("  sudo systemctl reboot")
-	return fmt.Errorf("no container runtime available")
+	return nil
 }
 
 // checkSudoAccess validates sudo is available and configured
@@ -306,7 +312,7 @@ func RunPreflightChecks(cfg *config.Config, ui *ui.UI) error {
 
 	// Run container runtime check
 	ui.Step("Checking Container Runtime")
-	if err := checkContainerRuntime(ui); err != nil {
+	if err := checkContainerRuntime(cfg, ui); err != nil {
 		hasErrors = true
 		errorMessages = append(errorMessages, err.Error())
 	}

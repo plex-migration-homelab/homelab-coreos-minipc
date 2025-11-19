@@ -12,10 +12,11 @@ const (
 	KeyContainersBase = "CONTAINERS_BASE" // Base directory for container services (/srv/containers)
 
 	// NFS configuration
-	KeyNFSServer       = "NFS_SERVER"
-	KeyNFSExport       = "NFS_EXPORT"
-	KeyNFSMountPoint   = "NFS_MOUNT_POINT"
-	KeyNFSMountOptions = "NFS_MOUNT_OPTIONS"
+	KeyNFSServer         = "NFS_SERVER"
+	KeyNFSExport         = "NFS_EXPORT"
+	KeyNFSMountPoint     = "NFS_MOUNT_POINT"      // User-friendly mount point (may be symlink)
+	KeyNFSMountPointReal = "NFS_MOUNT_POINT_REAL" // Actual resolved mount point (for systemd)
+	KeyNFSMountOptions   = "NFS_MOUNT_OPTIONS"
 
 	// WireGuard configuration
 	KeyWGInterface   = "WG_INTERFACE"

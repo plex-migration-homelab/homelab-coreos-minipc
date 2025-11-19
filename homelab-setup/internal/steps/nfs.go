@@ -640,6 +640,21 @@ func RunNFSSetup(cfg *config.Config, ui *ui.UI) error {
 		return fmt.Errorf("failed to save NFS mount point: %w", err)
 	}
 
+	// Resolve symlinks and save the real path for systemd mount unit dependencies
+	// This is critical on Fedora CoreOS where /mnt is a symlink to /var/mnt
+	realMountPoint, _ := system.ResolveRealPath(mountPoint)
+	if realMountPoint != mountPoint {
+		ui.Infof("Resolved real mount point: %s -> %s", mountPoint, realMountPoint)
+		if err := cfg.Set(config.KeyNFSMountPointReal, realMountPoint); err != nil {
+			return fmt.Errorf("failed to save real mount point: %w", err)
+		}
+	} else {
+		// Same path, still save for consistency
+		if err := cfg.Set(config.KeyNFSMountPointReal, realMountPoint); err != nil {
+			return fmt.Errorf("failed to save real mount point: %w", err)
+		}
+	}
+
 	ui.Print("")
 	ui.Separator()
 	ui.Success("✓ NFS configuration completed")

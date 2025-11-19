@@ -190,18 +190,19 @@ func createComposeService(cfg *config.Config, ui *ui.UI, serviceInfo *ServiceInf
 	}
 
 	// Check if NFS is configured and add mount dependency (common for both runtimes)
-	nfsMountPoint := cfg.GetOrDefault(config.KeyNFSMountPoint, "")
-	if nfsMountPoint != "" {
-		// Get escaped mount unit name
-		mountUnit, err := fstabMountToSystemdUnit(nfsMountPoint)
+	// Use the real (symlink-resolved) mount point for systemd dependencies
+	nfsMountPointReal := cfg.GetOrDefault(config.KeyNFSMountPointReal, cfg.GetOrDefault(config.KeyNFSMountPoint, ""))
+	if nfsMountPointReal != "" {
+		// Get escaped mount unit name using the real path
+		mountUnit, err := system.GetMountUnitName(nfsMountPointReal)
 		if err != nil {
-			ui.Warning(fmt.Sprintf("Failed to escape NFS mount point: %v", err))
+			ui.Warning(fmt.Sprintf("Failed to get mount unit name for %s: %v", nfsMountPointReal, err))
 			ui.Info("NFS mount dependency will not be added to service unit")
 		} else {
 			unitAfter = append(unitAfter, mountUnit)
 			unitRequires = append(unitRequires, mountUnit)
-			mountDependencies = fmt.Sprintf("RequiresMountsFor=%s\n", nfsMountPoint)
-			ui.Infof("Service will depend on NFS mount: %s (%s)", nfsMountPoint, mountUnit)
+			mountDependencies = fmt.Sprintf("RequiresMountsFor=%s\n", nfsMountPointReal)
+			ui.Infof("Service will depend on NFS mount: %s (%s)", nfsMountPointReal, mountUnit)
 		}
 	}
 
@@ -232,12 +233,15 @@ After=%s
 
 	// Add ExecStartPre to verify NFS mount if configured
 	var preExecChecks string
-	if nfsMountPoint != "" {
-		preExecChecks = fmt.Sprintf("ExecStartPre=/usr/bin/findmnt %s\n", nfsMountPoint)
+	if nfsMountPointReal != "" {
+		preExecChecks = fmt.Sprintf("ExecStartPre=/usr/bin/findmnt %s\n", nfsMountPointReal)
 	}
 
 	if runtime == system.RuntimeDocker {
-		// Docker: system-level service (no User= directive)
+		// Docker: system-level service running as ROOT
+		// IMPORTANT: Service runs as root to access Docker socket (/var/run/docker.sock).
+		// Security boundary is at container level via PUID/PGID environment variables.
+		// Containers run as unprivileged user (specified in .env file).
 		preExecChecks += fmt.Sprintf("ExecStartPre=%s pull --quiet\n", execComposeCmd)
 
 		serviceSection = fmt.Sprintf(`[Service]
@@ -579,8 +583,84 @@ func deployService(cfg *config.Config, ui *ui.UI, serviceName string) error {
 	return nil
 }
 
+// migratePodmanToDocker migrates from Podman to Docker runtime
+func migratePodmanToDocker(cfg *config.Config, ui *ui.UI) error {
+	runtimeStr := cfg.GetOrDefault(config.KeyContainerRuntime, "docker")
+	if runtimeStr != "podman" {
+		// Not using Podman, no migration needed
+		return nil
+	}
+
+	ui.Warning("Detected Podman runtime configuration - migrating to Docker...")
+	ui.Info("This will:")
+	ui.Info("  1. Stop and disable old podman-compose-*.service units")
+	ui.Info("  2. Update configuration to use Docker")
+	ui.Info("  3. Service files will be regenerated for Docker on next deployment")
+	ui.Print("")
+
+	// Get list of selected services
+	selectedServices, err := getSelectedServices(cfg)
+	if err != nil {
+		ui.Warning("Could not get selected services for migration")
+		selectedServices = []string{} // Continue anyway
+	}
+
+	// Stop and disable old podman-compose services
+	for _, serviceName := range selectedServices {
+		oldUnitName := fmt.Sprintf("podman-compose-%s.service", serviceName)
+
+		// Check if service exists
+		exists, _ := system.ServiceExists(oldUnitName)
+		if !exists {
+			continue
+		}
+
+		ui.Infof("Stopping and disabling %s...", oldUnitName)
+
+		// Stop service
+		cmd := exec.Command("sudo", "-n", "systemctl", "stop", oldUnitName)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			ui.Warning(fmt.Sprintf("Failed to stop %s: %v\nOutput: %s", oldUnitName, err, string(output)))
+		}
+
+		// Disable service
+		cmd = exec.Command("sudo", "-n", "systemctl", "disable", oldUnitName)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			ui.Warning(fmt.Sprintf("Failed to disable %s: %v\nOutput: %s", oldUnitName, err, string(output)))
+		}
+
+		ui.Successf("Stopped and disabled %s", oldUnitName)
+	}
+
+	// Update runtime in config
+	if err := cfg.Set(config.KeyContainerRuntime, "docker"); err != nil {
+		return fmt.Errorf("failed to update container runtime in config: %w", err)
+	}
+	ui.Success("Updated configuration to use Docker runtime")
+
+	// Reload systemd daemon
+	ui.Info("Reloading systemd daemon...")
+	cmd := exec.Command("sudo", "-n", "systemctl", "daemon-reload")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		ui.Warning(fmt.Sprintf("Failed to reload systemd: %v\nOutput: %s", err, string(output)))
+	} else {
+		ui.Success("Systemd daemon reloaded")
+	}
+
+	ui.Success("✓ Migration from Podman to Docker completed")
+	ui.Info("Service files will be regenerated for Docker on next deployment")
+	ui.Print("")
+
+	return nil
+}
+
 // runDeploymentPreflight performs preflight checks before deployment
 func runDeploymentPreflight(cfg *config.Config, ui *ui.UI) error {
+	// Migrate from Podman to Docker if necessary
+	if err := migratePodmanToDocker(cfg, ui); err != nil {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
 	runtime, err := getRuntimeFromConfig(cfg)
 	if err != nil {
 		return err
@@ -682,20 +762,20 @@ func runDeploymentPreflight(cfg *config.Config, ui *ui.UI) error {
 			ui.Successf("Validated compose file for %s", serviceName)
 		}
 
-		// Check NFS mount if configured
-		nfsMountPoint := cfg.GetOrDefault(config.KeyNFSMountPoint, "")
-		if nfsMountPoint != "" {
-			ui.Infof("Verifying NFS mount at %s...", nfsMountPoint)
-			cmd := exec.Command("findmnt", nfsMountPoint)
+		// Check NFS mount if configured (use real path)
+		nfsMountPointReal := cfg.GetOrDefault(config.KeyNFSMountPointReal, cfg.GetOrDefault(config.KeyNFSMountPoint, ""))
+		if nfsMountPointReal != "" {
+			ui.Infof("Verifying NFS mount at %s...", nfsMountPointReal)
+			cmd := exec.Command("findmnt", nfsMountPointReal)
 			if err := cmd.Run(); err != nil {
-				ui.Error(fmt.Sprintf("NFS mount not available at %s", nfsMountPoint))
+				ui.Error(fmt.Sprintf("NFS mount not available at %s", nfsMountPointReal))
 				ui.Info("Ensure the NFS mount is configured and accessible:")
 				ui.Info("  1. Check /etc/fstab entry")
 				ui.Info("  2. Run: sudo mount -a")
-				ui.Info("  3. Verify: findmnt " + nfsMountPoint)
-				return fmt.Errorf("NFS mount not available at %s - services may fail without media storage", nfsMountPoint)
+				ui.Info("  3. Verify: findmnt " + nfsMountPointReal)
+				return fmt.Errorf("NFS mount not available at %s - services may fail without media storage", nfsMountPointReal)
 			}
-			ui.Successf("NFS mount verified at %s", nfsMountPoint)
+			ui.Successf("NFS mount verified at %s", nfsMountPointReal)
 		}
 	} else {
 		// For Podman, use existing detection

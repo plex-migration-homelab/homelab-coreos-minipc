@@ -471,3 +471,41 @@ func IsMount(path string) (bool, error) {
 	// If the device IDs are different, it's a mount point
 	return pathStatT.Dev != parentStatT.Dev, nil
 }
+
+// ResolveRealPath resolves symlinks to get the actual filesystem path.
+// This is critical for Fedora CoreOS where /mnt is a symlink to /var/mnt.
+// Returns the resolved path, or the original path if resolution fails.
+func ResolveRealPath(path string) (string, error) {
+	cleanPath := filepath.Clean(path)
+	realPath, err := filepath.EvalSymlinks(cleanPath)
+	if err != nil {
+		// If EvalSymlinks fails, try to resolve the parent directory
+		parent := filepath.Dir(cleanPath)
+		if parent != cleanPath {
+			realParent, _ := filepath.EvalSymlinks(parent)
+			if realParent != "" {
+				// Parent resolved successfully, combine with base name
+				return filepath.Join(realParent, filepath.Base(cleanPath)), nil
+			}
+		}
+		// Fall back to clean path if resolution fails
+		return cleanPath, nil
+	}
+	return realPath, nil
+}
+
+// GetMountUnitName returns the systemd mount unit name for a given path.
+// This uses systemd-escape to properly escape the path for use in systemd unit names.
+// The path should be the real (symlink-resolved) path for correct systemd behavior.
+func GetMountUnitName(mountPoint string) (string, error) {
+	// Resolve symlinks first to get the real path
+	realPath, _ := ResolveRealPath(mountPoint)
+
+	// Use systemd-escape to generate the proper unit name
+	cmd := exec.Command("systemd-escape", "-p", "--suffix=mount", realPath)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to escape mount point %s: %w", realPath, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}

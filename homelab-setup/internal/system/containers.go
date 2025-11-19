@@ -309,3 +309,36 @@ func CheckRootless(runtime ContainerRuntime) (bool, error) {
 		return false, fmt.Errorf("unsupported runtime: %s", runtime)
 	}
 }
+
+// CheckDockerService checks if the docker.service systemd unit is active.
+// This is required for Docker-based deployments on Fedora CoreOS.
+func CheckDockerService() error {
+	cmd := exec.Command("systemctl", "is-active", "docker.service")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker.service is not active")
+	}
+	return nil
+}
+
+// CheckDockerComposeV2 checks if Docker Compose V2 plugin is available.
+// V2 is the preferred compose implementation (docker compose).
+func CheckDockerComposeV2() error {
+	cmd := exec.Command("docker", "compose", "version")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker compose plugin (V2) not available")
+	}
+	return nil
+}
+
+// CheckDockerComposeV1 checks if Docker Compose V1 standalone is available.
+// V1 is the legacy compose implementation (docker-compose).
+func CheckDockerComposeV1() error {
+	if !CommandExists("docker-compose") {
+		return fmt.Errorf("docker-compose (V1) not found")
+	}
+	cmd := exec.Command("docker-compose", "--version")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker-compose (V1) not functional")
+	}
+	return nil
+}
