@@ -53,7 +53,7 @@ ignition/*.ign
 !ignition/*.template
 
 # Go build artifacts (local build directory only)
-# Note: files/system/usr/local/bin/homelab-setup is intentionally tracked
+# Note: files/system/usr/bin/homelab-setup is intentionally tracked
 homelab-setup/bin/
 homelab-setup/homelab-setup
 homelab-setup/*.exe
