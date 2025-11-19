@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Needed for git commit info
+          token: ${{ secrets.GH_PAT }}  # Use PAT with write permissions
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -64,8 +65,6 @@ jobs:
           git add files/system/usr/bin/homelab-setup
           git commit -m "chore: rebuild homelab-setup binary [skip ci]"
           git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
