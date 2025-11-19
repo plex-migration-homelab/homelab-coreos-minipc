@@ -392,7 +392,7 @@ BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 1. Triggered on push to `homelab-setup/**`
 2. Runs tests: `go test ./... -v`
 3. Builds binary: `make build`
-4. Copies to: `/files/system/usr/local/bin/homelab-setup`
+4. Copies to: `/files/system/usr/bin/homelab-setup`
 5. Auto-commits if changed (git-actions bot)
 6. Uploads artifact (30-day retention)
 

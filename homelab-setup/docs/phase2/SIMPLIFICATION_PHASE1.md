@@ -425,7 +425,7 @@ git revert <commit-hash>
 ## After Phase 1
 
 **Next Steps:**
-- Build and copy binary to CoreOS image: `make build && cp bin/homelab-setup ../files/system/usr/local/bin/`
+- Build and copy binary to CoreOS image: `make build && cp bin/homelab-setup ../files/system/usr/bin/`
 - Test on actual CoreOS system (if available)
 - Commit changes with clear message
 - Proceed to Phase 2 (Configuration & State simplification)
