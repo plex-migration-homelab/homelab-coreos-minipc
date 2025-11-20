@@ -17,11 +17,11 @@ Declarative image + helper tooling for the NAB9 mini PC that fronts my homelab. 
 
 ## Try it in a weekend
 1. **Install the image.** Build an Ignition file from `ignition/config.bu.template` (see [`docs/reference/ignition.md`](docs/reference/ignition.md)) and install Fedora CoreOS on the target mini PC. The first boot rebases into `ghcr.io/zoro11031/homelab-coreos-minipc`.
-2. **Run the helper.** SSH in as `core`, jump into `~/setup/home-lab-setup-scripts/`, and launch `homelab-setup` (Go CLI) or `./homelab-setup.sh` (legacy bash). The wizard walks through user creation, WireGuard, NFS mounts, compose secrets, and service deployment.
+2. **Run the helper.** SSH in as `core` and launch `homelab-setup`. The wizard walks through user creation, WireGuard, NFS mounts, compose secrets, and service deployment.
 3. **Expose services.** Plex/Jellyfin stay on direct ports. Everything else routes through the VPS via WireGuard + Nginx Proxy Manager. Config files for tunnels and compose stacks are under `~/setup/` and `/srv/containers/`.
 
 ## Documentation map
 - [`docs/getting-started.md`](docs/getting-started.md): walkthrough for the image install plus the Go helper menu.
 - [`docs/reference/ignition.md`](docs/reference/ignition.md): Butane/Ignition workflow and image layering details.
-- [`docs/reference/homelab-setup-cli.md`](docs/reference/homelab-setup-cli.md): legacy bash script reference kept for historical context; the Go helper re-uses the same concepts but is menu-driven only.
+- [`docs/reference/homelab-setup-cli.md`](docs/reference/homelab-setup-cli.md): homelab-setup CLI reference and usage guide.
 - [`docs/testing/virt-manager-qa.md`](docs/testing/virt-manager-qa.md): quick smoke checklist for the VM validation flow.

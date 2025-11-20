@@ -22,11 +22,7 @@
 		"redhat.vscode-yaml",
 
 		// Markdown
-		"yzhang.markdown-all-in-one",
-
-		// Shell scripting (for the original bash scripts)
-		"timonwong.shellcheck",
-		"foxundermoon.shell-format"
+		"yzhang.markdown-all-in-one"
 	],
 	"unwantedRecommendations": []
 }

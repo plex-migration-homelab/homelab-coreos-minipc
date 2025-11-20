@@ -8,14 +8,11 @@ Quick, opinionated walkthrough for rebuilding the NAB9 mini PC. Use it when you 
 - Make sure the image has `podman`, `podman-compose`, `nfs-utils`, `wireguard-tools`, and systemd units from this repo.
 - Collect VPN details (WireGuard peers, VPS port) and any passwords you plan to reuse.
 
-## Fire up the helper scripts
-After first boot the image drops everything under `~/setup/`.
+## Run the setup tool
+After first boot, launch the homelab-setup CLI:
 
 ```bash
-cd ~/setup/home-lab-setup-scripts
-homelab-setup            # Go CLI (recommended)
-# or
-./homelab-setup.sh       # legacy bash wrapper
+homelab-setup
 ```
 
 The menu gives you:

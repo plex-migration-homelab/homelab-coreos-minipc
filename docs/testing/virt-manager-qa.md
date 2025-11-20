@@ -17,7 +17,7 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
    - Confirm the resulting qcow2 filename includes the architecture suffix (e.g., `homelab-coreos-minipc-x86_64.qcow2`) before attaching it in virt-manager so you catch any accidental ARM builds.
 3. **Provision an ignition file**
    - Start with `ignition/minipc.ign` (or the generated output) and adjust credentials as needed for the lab VM.
-   - Keep the default `core` user so that systemd setup scripts seeded by the build can run. They stage dotfiles, Compose bundles, and WireGuard helpers under `/home/core/setup` via the `home-directory-setup.service` unit.【F:files/system/etc/systemd/system/home-directory-setup.service†L1-L15】【F:files/system/usr/share/setup-scripts/compose.sh†L1-L5】
+   - Keep the default `core` user so that systemd setup scripts seeded by the build can run. They stage dotfiles, Compose bundles, and WireGuard helpers under `/home/core/setup` via the `home-directory-setup.service` unit.
 
 ## 2. Create the VM in virt-manager
 
@@ -49,7 +49,7 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
    systemctl status home-directory-setup.service
    ls -R /home/core/setup
    ```
-4. Validate that the Compose bundles and WireGuard helper scripts are present under `/home/core/setup` and owned by the `core` user.【F:files/system/usr/share/setup-scripts/wireguard.sh†L1-L4】【F:files/system/usr/share/setup-scripts/dotfiles.sh†L1-L6】【F:files/system/usr/share/setup-scripts/compose.sh†L1-L5】
+4. Validate that the Compose bundles and WireGuard helper scripts are present under `/home/core/setup` and owned by the `core` user.
 5. Capture the VM state (snapshot) now so you can roll back during troubleshooting.
 
 ## 4. Storage Mount QA inside the VM

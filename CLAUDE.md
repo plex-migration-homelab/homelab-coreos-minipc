@@ -31,11 +31,10 @@ homelab-coreos-minipc/
 │
 ├── files/                      # Files bundled into image
 │   ├── scripts/                # Build-time scripts (RPM Fusion)
-│   ├── system/                 # Filesystem overlay (/etc, /usr)
-│   │   ├── etc/systemd/system/ # Compose & WireGuard services
-│   │   ├── etc/profile.d/      # Intel VAAPI environment
-│   │   └── usr/bin/            # Compiled homelab-setup binary (auto-updated via GitHub Actions)
-│   └── setup_scripts/          # Legacy bash setup scripts
+│   └── system/                 # Filesystem overlay (/etc, /usr)
+│       ├── etc/systemd/system/ # Compose & WireGuard services
+│       ├── etc/profile.d/      # Intel VAAPI environment
+│       └── usr/bin/            # Compiled homelab-setup binary (auto-updated via GitHub Actions)
 │
 ├── ignition/                   # CoreOS first-boot provisioning
 │   ├── config.bu.template      # Butane config template
@@ -177,10 +176,8 @@ insert_final_newline = true
 ```
 
 **VS Code Settings** (`.vscode/settings.json`):
-- Linter: `golangci-lint`
 - Format on save: enabled
 - Organize imports on save: enabled
-- Build flags: `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`
 - Rulers: 100, 120 columns
 
 ### Error Handling Patterns

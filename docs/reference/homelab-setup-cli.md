@@ -1,12 +1,6 @@
-# UBlue uCore Homelab Setup Scripts
+# Homelab Setup CLI Reference
 
-> **Heads up:** This document covers the legacy bash helper that still ships in
-> `files/home-lab-setup-scripts`. The current Go-based `homelab-setup` binary
-> reuses the same concepts but intentionally limits itself to an interactive
-> menu so the footprint stays small. Keep this page around as a detailed
-> reference, but defer to the README for the exact Go helper behavior.
-
-Comprehensive interactive bash setup scripts for configuring a homelab environment on **UBlue uCore** (immutable Fedora with rpm-ostree).
+The `homelab-setup` CLI is an interactive Go-based tool for configuring a homelab environment on **UBlue uCore** (immutable Fedora with rpm-ostree). The binary is bundled in the image at `/usr/bin/homelab-setup` and automatically updated via GitHub Actions from the [plex-migration-homelab/homelab-setup](https://github.com/plex-migration-homelab/homelab-setup) repository.
 
 ## Table of Contents
 
@@ -128,25 +122,15 @@ These should be layered into your BlueBuild image or installed via rpm-ostree:
 
 ## Quick Start
 
-### 1. Access Setup Scripts
+### 1. Launch the CLI
 
-After first boot, the system automatically copies these scripts to your home directory:
-
-```bash
-# Scripts are located at ~/setup/home-lab-setup-scripts
-cd ~/setup/home-lab-setup-scripts
-```
-
-**Note:** The scripts are baked into the BlueBuild custom image and automatically deployed to `~/setup/home-lab-setup-scripts/` by the `home-directory-setup.service` systemd unit during first boot.
-
-### 2. Run Setup
+After first boot, launch the setup tool:
 
 ```bash
-cd ~/setup/home-lab-setup-scripts
-./homelab-setup.sh
+homelab-setup
 ```
 
-### 3. Choose Setup Mode
+### 2. Choose Setup Mode
 
 **Option A: Complete Setup**
 - Runs all steps including WireGuard
