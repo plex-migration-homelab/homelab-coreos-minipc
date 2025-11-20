@@ -39,11 +39,11 @@ services:
       # User and timezone
       - TZ=${TZ:-America/New_York}
     volumes:
-      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:z
-      - /mnt/nas-nextcloud/data:/var/www/html/data:z
-      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:z
-      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:z
-      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:z
+      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:Z
+      - /mnt/nas-nextcloud/data:/var/www/html/data:Z
+      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:Z
+      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:Z
+      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:Z
     ports:
       - "8080:80"
     networks:
@@ -63,11 +63,11 @@ services:
     environment:
       - TZ=${TZ:-America/New_York}
     volumes:
-      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:z
-      - /mnt/nas-nextcloud/data:/var/www/html/data:z
-      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:z
-      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:z
-      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:z
+      - /mnt/nas-nextcloud/nextcloud/html:/var/www/html:Z
+      - /mnt/nas-nextcloud/data:/var/www/html/data:Z
+      - /mnt/nas-nextcloud/nextcloud/custom_apps:/var/www/html/custom_apps:Z
+      - /mnt/nas-nextcloud/nextcloud/config:/var/www/html/config:Z
+      - /mnt/nas-nextcloud/nextcloud/themes:/var/www/html/themes:Z
     networks:
       - cloud
     labels:
@@ -136,7 +136,7 @@ services:
       - REDIS_HOSTNAME=immich-redis
       - UPLOAD_LOCATION=/mnt/nas-immich
     volumes:
-      - /mnt/nas-immich:/usr/src/app/upload
+      - /mnt/nas-immich:/usr/src/app/upload:Z
       - /etc/localtime:/etc/localtime:ro
     ports:
       - "2283:3001"
@@ -164,7 +164,7 @@ services:
       - REDIS_HOSTNAME=immich-redis
       - UPLOAD_LOCATION=/mnt/nas-immich
     volumes:
-      - /mnt/nas-immich:/usr/src/app/upload
+      - /mnt/nas-immich:/usr/src/app/upload:Z
       - /etc/localtime:/etc/localtime:ro
     depends_on:
       - immich-redis
@@ -181,7 +181,7 @@ services:
     environment:
       - TZ=${TZ:-America/New_York}
     volumes:
-      - ${APPDATA_PATH}/immich/model-cache:/cache
+      - ${APPDATA_PATH}/immich/model-cache:/cache:Z
     networks:
       - cloud
     labels:
@@ -203,7 +203,7 @@ services:
       - POSTGRES_USER=${IMMICH_DB_USERNAME:-postgres}
       - POSTGRES_DB=${IMMICH_DB_DATABASE:-immich}
     volumes:
-      - ${APPDATA_PATH}/immich/postgres:/var/lib/postgresql/data
+      - ${APPDATA_PATH}/immich/postgres:/var/lib/postgresql/data:Z
     networks:
       - cloud
 

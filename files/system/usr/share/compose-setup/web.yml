@@ -17,7 +17,7 @@ services:
       - "443:443"   # HTTPS
       - "81:81"     # Admin Web Interface
     volumes:
-      - ${APPDATA_PATH}/nginxproxymanager:/config
+      - ${APPDATA_PATH}/nginxproxymanager:/config:Z
     networks:
       - web
     labels:
@@ -34,7 +34,7 @@ services:
     ports:
       - "5055:5055"
     volumes:
-      - ${APPDATA_PATH}/overseerr:/config
+      - ${APPDATA_PATH}/overseerr:/config:Z
     networks:
       - web
     labels:
@@ -51,7 +51,7 @@ services:
     ports:
       - "5690:5690"
     volumes:
-      - ${APPDATA_PATH}/wizarr:/data/database
+      - ${APPDATA_PATH}/wizarr:/data/database:Z
     networks:
       - web
     labels:
@@ -69,7 +69,7 @@ services:
     ports:
       - "9983:80"
     volumes:
-      - ${APPDATA_PATH}/organizr:/config
+      - ${APPDATA_PATH}/organizr:/config:Z
     networks:
       - web
     labels:
@@ -86,7 +86,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ${APPDATA_PATH}/homepage:/app/config
+      - ${APPDATA_PATH}/homepage:/app/config:Z
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - web
