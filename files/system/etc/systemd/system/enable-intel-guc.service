@@ -1,0 +1,18 @@
+[Unit]
+Description=Enable Intel GuC/HuC firmware loading
+# Run after network is online to ensure rpm-ostree has access if needed (though kargs is local)
+# and after rpm-ostreed is available.
+After=network-online.target rpm-ostreed.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/enable-intel-guc
+# We want this to run, but if it fails, don't block boot indefinitely?
+# Actually, if it fails, it fails.
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+
+# This script ensures that the kernel argument i915.enable_guc=2 is present.
+# It uses rpm-ostree kargs to check and append the argument if missing.
+# Note: Adding a karg requires a reboot to take effect.
+
+KARG="i915.enable_guc=2"
+
+# Check if karg is already configured in rpm-ostree
+# We search for the exact string.
+if rpm-ostree kargs | grep -qF "$KARG"; then
+    echo "Kernel argument '$KARG' is already present in rpm-ostree configuration."
+    exit 0
+fi
+
+echo "Kernel argument '$KARG' is missing. Adding it now..."
+
+# Append the kernel argument
+rpm-ostree kargs --append="$KARG"
+
+echo "Kernel argument '$KARG' added successfully."
+echo "A reboot is required for the changes to take effect."
