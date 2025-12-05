@@ -7,3 +7,4 @@ system:
     - home-directory-setup.service
     - cpu-epp.service
     - cpu-throttle.service
+    - cockpit.socket
