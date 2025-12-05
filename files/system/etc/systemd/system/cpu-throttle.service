@@ -1,0 +1,11 @@
+[Unit]
+Description=Apply CPU Frequency Cap for Thermal Safety
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo 3500000 | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

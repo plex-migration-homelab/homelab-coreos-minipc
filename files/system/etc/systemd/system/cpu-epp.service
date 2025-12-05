@@ -1,0 +1,10 @@
+[Unit]
+Description=Set Intel EPP to balance_power
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo balance_power | tee /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference'
+
+[Install]
+WantedBy=multi-user.target

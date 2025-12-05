@@ -5,3 +5,5 @@ system:
   enabled:
     - wg-quick@wg0.service
     - home-directory-setup.service
+    - cpu-epp.service
+    - cpu-throttle.service
