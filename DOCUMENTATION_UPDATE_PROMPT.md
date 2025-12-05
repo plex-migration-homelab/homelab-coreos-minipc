@@ -26,7 +26,7 @@
 - Manual dispatch
 
 **Build Output**:
-- Registry: `ghcr.io/zoro11031/homelab-coreos-minipc`
+- Registry: `ghcr.io/plex-migration-homelab/homelab-coreos-minipc`
 - Tags: `latest`, `{git-sha}`
 - Signed variant: `ostree-image-signed:docker://` (if signing enabled)
 - Unsigned variant: `ostree-unverified-registry:` (fallback)
@@ -48,8 +48,8 @@
 
 **Installed but NOT Enabled** (user must enable during setup):
 - `podman-compose-media.service` - Plex, Jellyfin, Tautulli (requires NFS mount)
-- `podman-compose-web.service` - Nginx Proxy Manager, Overseerr, Wizarr, etc.
-- `podman-compose-cloud.service` - Nextcloud, Immich, databases
+- `podman-compose-web.service` - Caddy, Jellyseerr, Wizarr, etc.
+- `podman-compose-cloud.service` - Nextcloud, databases
 - `docker-compose-media.service` - Docker variant
 - `docker-compose-web.service` - Docker variant
 - `docker-compose-cloud.service` - Docker variant
@@ -63,7 +63,6 @@
 **NFS Mount Units** (created during Step 4: NFS Setup):
 - `mnt-nas-media.mount` - `/mnt/nas-media` → `{NFS_SERVER}:/mnt/storage/Media` (ro, nfsvers=4)
 - `mnt-nas-nextcloud.mount` - `/mnt/nas-nextcloud` → `{NFS_SERVER}:/mnt/storage/Nextcloud` (rw, nfsvers=4)
-- `mnt-nas-immich.mount` - `/mnt/nas-immich` → `{NFS_SERVER}:/mnt/storage/Immich` (rw, nfsvers=4)
 - `mnt-nas-photos.mount` - `/mnt/nas-photos` → `{NFS_SERVER}:/mnt/storage/Photos` (ro, nfsvers=4)
 
 **Important**: Media compose services have `Requires=mnt-nas-media.mount` dependency
@@ -93,13 +92,13 @@
 4. **Auto-Rebase Process** (two-stage):
    - **Stage 1** (`ucore-unsigned-autorebase.service`):
      - Condition: `!/etc/ucore-autorebase/unverified` and `!/etc/ucore-autorebase/signed`
-     - Rebases to: `ostree-unverified-registry:ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+     - Rebases to: `ostree-unverified-registry:ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest`
      - Creates marker: `/etc/ucore-autorebase/unverified`
      - Disables self and reboots
 
    - **Stage 2** (`ucore-signed-autorebase.service`):
      - Condition: `/etc/ucore-autorebase/unverified` exists, `!/etc/ucore-autorebase/signed`
-     - Rebases to: `ostree-image-signed:docker://ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+     - Rebases to: `ostree-image-signed:docker://ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest`
      - Creates marker: `/etc/ucore-autorebase/signed`
      - Disables self and reboots
 
@@ -159,8 +158,8 @@ export LIBVA_DRIVER_NAME=iHD
 ```
 /usr/share/compose-setup/
 ├── media.yml    # Plex, Jellyfin, Tautulli (with /dev/dri GPU access)
-├── web.yml      # Nginx Proxy Manager, Overseerr, Wizarr, Organizr, Homepage
-├── cloud.yml    # Nextcloud, Immich, PostgreSQL, Redis, Collabora
+├── web.yml      # Caddy, Jellyseerr, Wizarr, Jellystat, CloudflareDDNS
+├── cloud.yml    # Nextcloud, PostgreSQL, Redis, Collabora
 └── .env.example # Environment variable template
 ```
 
@@ -298,7 +297,6 @@ export LIBVA_DRIVER_NAME=iHD
 ├── organizr/
 ├── homepage/
 ├── nextcloud/
-├── immich/
 ├── postgres/
 └── redis/
 ```
@@ -307,7 +305,6 @@ export LIBVA_DRIVER_NAME=iHD
 ```
 /mnt/nas-media/                      # NFS mount (ro)
 /mnt/nas-nextcloud/                  # NFS mount (rw)
-/mnt/nas-immich/                     # NFS mount (rw)
 /mnt/nas-photos/                     # NFS mount (ro)
 ```
 
@@ -475,7 +472,7 @@ Options=ro,nfsvers=4,soft,timeo=30,retrans=2
 WantedBy=multi-user.target
 ```
 - Generated during Step 4: NFS Setup
-- Similar units for: `mnt-nas-nextcloud.mount`, `mnt-nas-immich.mount`, `mnt-nas-photos.mount`
+- Similar units for: `mnt-nas-nextcloud.mount`, `mnt-nas-photos.mount`
 
 ---
 
@@ -592,7 +589,7 @@ cp /usr/share/compose-setup/*.yml /srv/containers/
 cp /usr/share/compose-setup/.env.example /srv/containers/.env.example
 
 # Create appdata directories
-mkdir -p /var/lib/containers/appdata/{plex,jellyfin,tautulli,overseerr,wizarr,organizr,homepage,nextcloud,immich,postgres,redis}
+mkdir -p /var/lib/containers/appdata/{plex,jellyfin,komga,jellyseerr,jellystat,wizarr,caddy,nextcloud,postgres,redis}
 
 # Set temporary ownership (will be changed to dockeruser later)
 chown -R core:core /srv/containers
@@ -726,7 +723,7 @@ networks:
     driver: bridge
 ```
 - Isolated from host network
-- Access via Nginx Proxy Manager reverse proxy
+- Access via Caddy reverse proxy
 
 ---
 
@@ -874,7 +871,7 @@ ls -la /etc/ucore-autorebase/
 **Resolution**:
 ```bash
 # Manual rebase
-sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/zoro11031/homelab-coreos-minipc:latest
+sudo rpm-ostree rebase ostree-unverified-registry:ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest
 sudo systemctl reboot
 
 # After reboot, check status
@@ -1114,7 +1111,7 @@ sudo systemctl restart podman-compose-media.service
 rpm-ostree status
 
 # Check image build date
-podman run --rm ghcr.io/zoro11031/homelab-coreos-minipc:latest cat /etc/os-release
+podman run --rm ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest cat /etc/os-release
 ```
 
 **Common Causes**:
@@ -1125,7 +1122,7 @@ podman run --rm ghcr.io/zoro11031/homelab-coreos-minipc:latest cat /etc/os-relea
 **Resolution**:
 ```bash
 # Rebase to latest
-sudo rpm-ostree rebase ghcr.io/zoro11031/homelab-coreos-minipc:latest
+sudo rpm-ostree rebase ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest
 sudo systemctl reboot
 
 # After reboot, verify
@@ -1194,7 +1191,7 @@ docs/
 ├── services/
 │   ├── media-stack.md               # Plex, Jellyfin configuration
 │   ├── web-stack.md                 # Nginx, Overseerr, etc.
-│   ├── cloud-stack.md               # Nextcloud, Immich
+│   ├── cloud-stack.md               # Nextcloud
 │   └── gpu-transcoding.md           # Intel QuickSync setup
 ├── maintenance/
 │   ├── updates.md                   # How to update the image

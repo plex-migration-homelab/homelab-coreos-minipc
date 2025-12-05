@@ -21,9 +21,9 @@ The `homelab-setup` CLI is an interactive Go-based tool for configuring a homela
 
 These scripts automate the complete setup of a homelab environment on **UBlue uCore**, an immutable Fedora-based operating system that uses rpm-ostree for package management. The setup includes:
 
-- **Media Services**: Plex, Jellyfin, Tautulli
-- **Web Services**: Overseerr, Wizarr, Organizr, Homepage
-- **Cloud Services**: Nextcloud, Immich, Collabora
+- **Media Services**: Plex, Jellyfin, Komga
+- **Web Services**: Caddy, Jellyseerr, Wizarr, Jellystat
+- **Cloud Services**: Nextcloud, Collabora
 - **Infrastructure**: WireGuard VPN, NFS network storage, systemd services
 
 ### What Makes This Special?
@@ -150,9 +150,9 @@ After deployment, access your services at:
 ```
 http://<your-ip>:32400/web  # Plex
 http://<your-ip>:8096       # Jellyfin
-http://<your-ip>:5055       # Overseerr
+http://<your-ip>:5055       # Jellyseerr
 http://<your-ip>:8080       # Nextcloud
-http://<your-ip>:2283       # Immich
+http://<your-ip>:25600      # Komga
 # ... and more
 ```
 
@@ -185,8 +185,7 @@ http://<your-ip>:2283       # Immich
 │           └── ...
 ├── mnt/
 │   ├── nas-media/               # NFS mounts
-│   ├── nas-nextcloud/
-│   └── nas-immich/
+│   └── nas-nextcloud/
 └── usr/
     ├── lib/systemd/system/      # Pre-configured services (read-only)
     └── share/
@@ -210,7 +209,7 @@ http://<your-ip>:2283       # Immich
 │                  Podman Containers                       │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
 │  │    Plex     │  │  Jellyfin   │  │  Nextcloud  │    │
-│  │  Tautulli   │  │  Overseerr  │  │   Immich    │    │
+│  │   Komga     │  │ Jellyseerr  │  │  Collabora  │    │
 │  └─────────────┘  └─────────────┘  └─────────────┘    │
 └─────────────────────────────────────────────────────────┘
                           ↓
@@ -318,10 +317,10 @@ http://<your-ip>:2283       # Immich
 │   ├── compose.yml          # Plex, Jellyfin, Tautulli
 │   └── .env                 # Media stack environment
 ├── web/
-│   ├── compose.yml          # Overseerr, Wizarr, Organizr, Homepage
+│   ├── compose.yml          # Caddy, Jellyseerr, Wizarr, Jellystat
 │   └── .env                 # Web stack environment
 └── cloud/
-    ├── compose.yml          # Nextcloud, Immich, Collabora
+    ├── compose.yml          # Nextcloud, Collabora
     └── .env                 # Cloud stack environment
 ```
 
@@ -331,19 +330,15 @@ http://<your-ip>:2283       # Immich
 /var/lib/containers/appdata/
 ├── plex/                    # Plex configuration and database
 ├── jellyfin/                # Jellyfin configuration and database
-├── tautulli/                # Tautulli statistics database
-├── overseerr/               # Overseerr configuration
+├── komga/                   # Komga comics/manga/ebook server
+├── jellyseerr/              # Jellyseerr configuration
+├── jellystat/               # Jellystat analytics
 ├── wizarr/                  # Wizarr invitation system
-├── organizr/                # Organizr dashboard
-├── homepage/                # Homepage dashboard
+├── caddy/                   # Caddy reverse proxy
 ├── nextcloud/               # Nextcloud data and config
 ├── nextcloud-db/            # PostgreSQL for Nextcloud
 ├── nextcloud-redis/         # Redis for Nextcloud
-├── collabora/               # Collabora Office
-├── immich/                  # Immich photo management
-├── immich-db/               # PostgreSQL for Immich
-├── immich-redis/            # Redis for Immich
-└── immich-ml/               # Immich machine learning
+└── collabora/               # Collabora Office
 ```
 
 ## Configuration
@@ -397,11 +392,8 @@ JELLYFIN_PUBLIC_URL=https://jellyfin.example.com
 
 **Cloud Stack:**
 ```bash
-NEXTCLOUD_ADMIN_USER=admin
-NEXTCLOUD_ADMIN_PASSWORD=xxx
 NEXTCLOUD_DB_PASSWORD=xxx
-NEXTCLOUD_TRUSTED_DOMAINS=cloud.example.com
-IMMICH_DB_PASSWORD=xxx
+NEXTCLOUD_DOMAIN=cloud.example.com
 COLLABORA_PASSWORD=xxx
 ```
 

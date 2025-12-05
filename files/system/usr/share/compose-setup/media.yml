@@ -1,5 +1,3 @@
-version: '3.9'
-
 # Media Services - Plex and Jellyfin with Intel QuickSync hardware transcoding
 # These services have direct WAN access for streaming to remote users
 
@@ -16,61 +14,89 @@ services:
       - VERSION=docker
       # Hardware transcoding
       - PLEX_CLAIM=${PLEX_CLAIM_TOKEN}
+      - PLEX_TRANSCODE_TEMP_DIRECTORY=/transcode
     volumes:
       # Plex configuration and metadata
-      - ${APPDATA_PATH}/plex:/config
+      - ${APPDATA_PATH}/plex/config:/config:Z
+      # Plex transcode directory on fast local storage
+      - ${APPDATA_PATH}/plex/transcode:/transcode:Z
       # Media library (read-only from NFS)
       - /mnt/nas-media:/media:ro
-      # Optional: transcode directory on fast local storage
-      - ${APPDATA_PATH}/plex/transcode:/transcode
+    tmpfs:
+      - /config/Library/Application Support/Plex Media Server/Codecs:size=200m,uid=1001,gid=1001,mode=0755,exec
     devices:
       # Intel QuickSync hardware transcoding
       - /dev/dri:/dev/dri
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "homepage.group=Media"
+      - "homepage.name=Plex"
+      - "homepage.icon=plex.png"
+      - "homepage.href=http://minipc.lan:32400"
+      - "homepage.widget.type=plex"
+      - "homepage.widget.url=http://minipc.lan:32400"
+      - "homepage.widget.key=${PLEX_API_KEY}"
 
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     restart: unless-stopped
+    network_mode: host
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
       # Hardware transcoding
       - LIBVA_DRIVER_NAME=iHD
+      - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
       - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLIC_URL}
-    ports:
-      - "8096:8096"   # HTTP
-      - "8920:8920"   # HTTPS (optional)
-      - "7359:7359/udp"  # Auto-discovery (optional)
     volumes:
       # Jellyfin configuration and metadata
-      - ${APPDATA_PATH}/jellyfin/config:/config
-      - ${APPDATA_PATH}/jellyfin/cache:/cache
+      - ${APPDATA_PATH}/jellyfin/config:/config:Z
+      - ${APPDATA_PATH}/jellyfin/cache:/cache:Z
+      - ${APPDATA_PATH}/jellyfin/scripts:/scripts:Z
+      - ${APPDATA_PATH}/jellyfin/transcode:/transcode:Z
       # Media library (read-only from NFS)
       - /mnt/nas-media:/media:ro
     devices:
       # Intel QuickSync hardware transcoding
       - /dev/dri:/dev/dri
+    group_add:
+      - "105"
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "homepage.group=Media"
+      - "homepage.name=Jellyfin"
+      - "homepage.icon=jellyfin.png"
+      - "homepage.href=http://minipc.lan:8096"
+      - "homepage.widget.type=jellyfin"
+      - "homepage.widget.url=http://minipc.lan:8096"
+      - "homepage.widget.key=${JELLYFIN_API_KEY}"
+      - "homepage.widget.enableBlocks=true"
+      - "homepage.widget.enableNowPlaying=true"
 
-# Optional: Media management tools
-  tautulli:
-    image: lscr.io/linuxserver/tautulli:latest
-    container_name: tautulli
+  komga:
+    image: gotson/komga:latest
+    container_name: komga
     restart: unless-stopped
     environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
+      - KOMGA_LIBRARIES_SCAN_DIRECTORY_EXCLUSIONS=${KOMGA_LIBRARIES_SCAN_DIRECTORY_EXCLUSIONS:-#recycle,@eaDir}
     ports:
-      - "8181:8181"
+      - "25600:25600"
     volumes:
-      - ${APPDATA_PATH}/tautulli:/config
+      # Komga configuration and database
+      - ${APPDATA_PATH}/komga:/config:Z
+      # Media libraries (read-only from NFS)
+      - /mnt/nas-media/ebooks:/books:ro
+      - /mnt/nas-media/manga:/manga:ro
+    networks:
+      - media
+    healthcheck:
+      disable: true
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "homepage.group=Media"
+      - "homepage.name=Komga"
+      - "homepage.icon=komga.png"
+      - "homepage.href=http://minipc.lan:25600"
 
 # Networks are not needed for host network mode
 # But we can define them for future services if needed

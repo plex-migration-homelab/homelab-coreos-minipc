@@ -13,7 +13,7 @@ This repository contains BlueBuild configuration for building custom Fedora Core
 2. **Setup CLI Tool Binary** - Compiled `homelab-setup` binary bundled in the image (source maintained separately at [plex-migration-homelab/homelab-setup](https://github.com/plex-migration-homelab/homelab-setup))
 3. **Infrastructure as Code** - Butane/Ignition configs, systemd units, compose stacks
 
-**Key Services**: Plex, Jellyfin (hardware transcoding), Nextcloud, Immich, Overseerr, Nginx Proxy Manager
+**Key Services**: Plex, Jellyfin (hardware transcoding), Nextcloud, Jellyseerr, Caddy
 **Architecture**: Intel QuickSync GPU, WireGuard VPN tunnel to VPS, NFS-backed media storage
 
 **Note**: The Go source code for the `homelab-setup` CLI has been moved to a dedicated repository. This repo only contains the compiled binary and image configuration.
@@ -80,7 +80,7 @@ homelab-coreos-minipc/
 
 - **GitHub Actions**: Image builds, binary compilation
 - **Cosign**: Image signing (optional, via secrets)
-- **GHCR**: GitHub Container Registry (`ghcr.io/zoro11031/homelab-coreos-minipc`)
+- **GHCR**: GitHub Container Registry (`ghcr.io/plex-migration-homelab/homelab-coreos-minipc`)
 
 ---
 
@@ -212,7 +212,7 @@ ui.Info("Information message")
 **Always validate user input** using `internal/common` validators:
 
 ```go
-import "github.com/zoro11031/homelab-coreos-minipc/homelab-setup/internal/common"
+import "github.com/plex-migration-homelab/homelab-setup/internal/common"
 
 // IP addresses (IPv4 only)
 if err := common.ValidateIP("192.168.1.1"); err != nil {
@@ -350,7 +350,7 @@ modules:
 - **Manual**: `workflow_dispatch`
 
 **Build Output**:
-- Registry: `ghcr.io/zoro11031/homelab-coreos-minipc:latest`
+- Registry: `ghcr.io/plex-migration-homelab/homelab-coreos-minipc:latest`
 - Tags: `latest`, git commit SHA
 - Signing: Cosign (if `SIGNING_SECRET` set)
 

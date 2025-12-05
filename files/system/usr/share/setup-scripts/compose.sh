@@ -19,7 +19,7 @@ if [ -f /usr/share/compose-setup/.env.example ]; then
 fi
 
 # Create appdata directory structure using brace expansion
-mkdir -p /var/lib/containers/appdata/{plex,jellyfin,tautulli,overseerr,wizarr,organizr,homepage,nextcloud,immich,postgres,redis}
+mkdir -p /var/lib/containers/appdata/{plex,jellyfin,komga,jellyseerr,jellystat,wizarr,caddy,nextcloud,postgres,redis}
 
 # Set appropriate ownership (dockeruser:dockeruser)
 # Note: dockeruser may not exist yet at first boot, so we defer this to post-install

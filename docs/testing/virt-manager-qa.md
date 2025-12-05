@@ -30,14 +30,14 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
 5. Add **virtiofs-backed storage shares** for NFS validation
    - **Host-side prep**: create throwaway export directories and seed each with a README marker so you can confirm the shares are live inside the guest:
      ```bash
-     mkdir -p "${HOME}"/virt-shares/nas-{media,nextcloud,immich}
-     for share in media nextcloud immich; do
+     mkdir -p "${HOME}"/virt-shares/nas-{media,nextcloud}
+     for share in media nextcloud; do
        echo "QA sentinel for ${share} share" > "${HOME}/virt-shares/nas-${share}/README"
      done
      ```
    - Use **Add Hardware → Filesystem → virtiofs** to expose host directories that simulate the NAS exports expected by the image. Set **Type** to `mount`, **Driver** to `virtiofs`, and **Mode** to `passthrough` so the guest sees the host files verbatim.
-   - Map host paths `~/virt-shares/nas-media`, `~/virt-shares/nas-nextcloud`, and `~/virt-shares/nas-immich` to guest target paths `/mnt/nas-media`, `/mnt/nas-nextcloud`, and `/mnt/nas-immich` respectively so the systemd mount units that ship with the build resolve on boot.【F:files/system/etc/systemd/system/mnt-nas-media.mount†L1-L19】【F:files/system/etc/systemd/system/mnt-nas-nextcloud.mount†L1-L19】【F:files/system/etc/systemd/system/mnt-nas-immich.mount†L1-L19】
-   - After the test cycle, remove the dummy directories so the host filesystem stays clean: `rm -rf "${HOME}"/virt-shares/nas-{media,nextcloud,immich}`.
+   - Map host paths `~/virt-shares/nas-media` and `~/virt-shares/nas-nextcloud` to guest target paths `/mnt/nas-media` and `/mnt/nas-nextcloud` respectively so the systemd mount units that ship with the build resolve on boot.
+   - After the test cycle, remove the dummy directories so the host filesystem stays clean: `rm -rf "${HOME}"/virt-shares/nas-{media,nextcloud}`.
 6. Attach any additional virtual disks needed for migration rehearsal (e.g., a second qcow2 for exporting container data).
 
 ## 3. First Boot Verification
@@ -57,14 +57,13 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
 1. **Mount unit health**
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl restart mnt-nas-media.mount mnt-nas-nextcloud.mount mnt-nas-immich.mount
-   systemctl status mnt-nas-media.mount mnt-nas-nextcloud.mount mnt-nas-immich.mount
+   sudo systemctl restart mnt-nas-media.mount mnt-nas-nextcloud.mount
+   systemctl status mnt-nas-media.mount mnt-nas-nextcloud.mount
    ```
 2. **Mountpoint verification**
    ```bash
    findmnt /mnt/nas-media
    findmnt /mnt/nas-nextcloud
-   findmnt /mnt/nas-immich
    ```
 3. **Read/write validation**
    - For read-only media share (`/mnt/nas-media`), check permissions: `touch /mnt/nas-media/test` should fail with `Read-only file system`.
@@ -110,7 +109,7 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
    podman logs nextcloud
    podman logs jellyfin
    ```
-5. Confirm that services relying on NFS succeed (Nextcloud DB volume, Immich libraries). Missing mounts will surface as permission errors; correlate with Section 4.
+5. Confirm that services relying on NFS succeed (Nextcloud data volume). Missing mounts will surface as permission errors; correlate with Section 4.
 6. Tear down and rebuild to ensure idempotence: `podman compose -f media.yml down --volumes` followed by another `up` cycle.
 
 ## 7. Migration Rehearsal

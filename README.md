@@ -1,4 +1,4 @@
-# Homelab CoreOS Mini PC &nbsp; [![build](https://github.com/zoro11031/homelab-coreos-minipc/actions/workflows/build.yml/badge.svg)](https://github.com/zoro11031/homelab-coreos-minipc/actions/workflows/build.yml)
+# Homelab CoreOS Mini PC &nbsp; [![build](https://github.com/plex-migration-homelab/homelab-coreos-minipc/actions/workflows/build.yml/badge.svg)](https://github.com/plex-migration-homelab/homelab-coreos-minipc/actions/workflows/build.yml)
 
 Declarative image + helper tooling for the NAB9 mini PC that fronts my homelab. It rebases Fedora CoreOS into a custom UBlue uCore build, tunnels traffic through WireGuard to a VPS, and mounts media from the backend file server over NFS.
 
@@ -11,14 +11,14 @@ Declarative image + helper tooling for the NAB9 mini PC that fronts my homelab. 
 
 ## What's running
 - **Media:** Plex and Jellyfin with Intel QuickSync for hardware transcodes.
-- **Portals:** Overseerr, Wizarr, and Nginx Proxy Manager on the VPS for public access.
-- **Cloud:** Nextcloud + Collabora + Redis + PostgreSQL and Immich for photos.
+- **Portals:** Jellyseerr, Wizarr, and Caddy reverse proxy for public access.
+- **Cloud:** Nextcloud + Collabora + Redis + PostgreSQL.
 - **Platform bits baked into the image:** Podman, systemd units for WireGuard/NFS/compose, helper scripts dropped into `~/setup/`, and VAAPI drivers so the box is ready for GPU work.
 
 ## Try it in a weekend
-1. **Install the image.** Build an Ignition file from `ignition/config.bu.template` (see [`docs/reference/ignition.md`](docs/reference/ignition.md)) and install Fedora CoreOS on the target mini PC. The first boot rebases into `ghcr.io/zoro11031/homelab-coreos-minipc`.
+1. **Install the image.** Build an Ignition file from `ignition/config.bu.template` (see [`docs/reference/ignition.md`](docs/reference/ignition.md)) and install Fedora CoreOS on the target mini PC. The first boot rebases into `ghcr.io/plex-migration-homelab/homelab-coreos-minipc`.
 2. **Run the helper.** SSH in as `core` and launch `homelab-setup`. The wizard walks through user creation, WireGuard, NFS mounts, compose secrets, and service deployment.
-3. **Expose services.** Plex/Jellyfin stay on direct ports. Everything else routes through the VPS via WireGuard + Nginx Proxy Manager. Config files for tunnels and compose stacks are under `~/setup/` and `/srv/containers/`.
+3. **Expose services.** Plex/Jellyfin stay on direct ports. Everything else routes through Caddy reverse proxy. Config files for tunnels and compose stacks are under `~/setup/` and `/srv/containers/`.
 
 ## Documentation map
 - [`docs/getting-started.md`](docs/getting-started.md): walkthrough for the image install plus the Go helper menu.

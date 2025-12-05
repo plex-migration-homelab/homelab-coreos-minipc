@@ -1,44 +1,81 @@
-version: '3.9'
-
-# Web Services - Overseerr, Wizarr, and Nginx Proxy Manager
-# These services are accessed via VPS reverse proxy (WireGuard tunnel)
+# Web Services - Caddy, Jellyseerr and Wizarr
+# These services are accessed via VPS reverse proxy (WireGuard tunnel) or directly via Caddy
+# Note: Jellyseerr (5055) uses PostgreSQL backend for better performance
 
 services:
-  nginxproxymanager:
-    image: lscr.io/linuxserver/nginx-proxy-manager:latest
-    container_name: nginxproxymanager
+  caddy:
+    image: caddy:latest
+    container_name: caddy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
     ports:
-      - "80:80"     # HTTP
-      - "443:443"   # HTTPS
-      - "81:81"     # Admin Web Interface
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
-      - ${APPDATA_PATH}/nginxproxymanager:/config
+      # Caddyfile should be placed in ${APPDATA_PATH}/caddy/Caddyfile
+      - ${APPDATA_PATH}/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - ${APPDATA_PATH}/caddy/data:/data:z
+      - ${APPDATA_PATH}/caddy/config:/config:z
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - web
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "homepage.group=Infrastructure"
+      - "homepage.name=Caddy"
+      - "homepage.icon=caddy.png"
+      - "homepage.href=http://minipc.lan:1880"
 
-  overseerr:
-    image: lscr.io/linuxserver/overseerr:latest
-    container_name: overseerr
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
     restart: unless-stopped
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
+      - DB_TYPE=${JELLYSEERR_DB_TYPE:-postgres}
+      - DB_HOST=${JELLYSEERR_DB_HOST:-jellyseerr-postgres}
+      - DB_PORT=${JELLYSEERR_DB_PORT:-5432}
+      - DB_USER=${JELLYSEERR_DB_USER:-jellyseerr}
+      - DB_PASS=${JELLYSEERR_DB_PASS:-jellyseerr}
+      - DB_NAME=${JELLYSEERR_DB_NAME:-jellyseerr}
+      - DB_LOG_QUERIES=${JELLYSEERR_DB_LOG_QUERIES:-false}
+      - DB_USE_SSL=${JELLYSEERR_DB_USE_SSL:-false}
     ports:
       - "5055:5055"
     volumes:
-      - ${APPDATA_PATH}/overseerr:/config
+      - ${APPDATA_PATH}/jellyseerr:/app/config:z
+    depends_on:
+      - jellyseerr-postgres
     networks:
       - web
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "homepage.group=Requests"
+      - "homepage.name=Jellyseerr"
+      - "homepage.icon=jellyseerr.png"
+      - "homepage.href=http://minipc.lan:5055"
+      - "homepage.widget.type=jellyseerr"
+      - "homepage.widget.url=http://minipc.lan:5055"
+      - "homepage.widget.key={{HOMEPAGE_VAR_JELLYSEERR_API_KEY}}"
+
+  jellyseerr-postgres:
+    image: postgres:18
+    container_name: jellyseerr-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${JELLYSEERR_DB_USER:-jellyseerr}
+      - POSTGRES_PASSWORD=${JELLYSEERR_DB_PASS:-jellyseerr}
+      - POSTGRES_DB=${JELLYSEERR_DB_NAME:-jellyseerr}
+    volumes:
+      - ${APPDATA_PATH}/jellyseerr/postgres:/var/lib/postgresql:z
+    networks:
+      - web
 
   wizarr:
     image: ghcr.io/wizarrrr/wizarr:latest
@@ -51,47 +88,83 @@ services:
     ports:
       - "5690:5690"
     volumes:
-      - ${APPDATA_PATH}/wizarr:/data/database
+      - ${APPDATA_PATH}/wizarr:/data/database:z
     networks:
       - web
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "homepage.group=Requests"
+      - "homepage.name=Wizarr"
+      - "homepage.icon=wizarr.png"
+      - "homepage.href=http://minipc.lan:5690"
 
-  # Optional: Organizr for unified dashboard
-  organizr:
-    image: organizr/organizr:latest
-    container_name: organizr
+  cloudflareddns:
+    image: ghcr.io/hotio/cloudflareddns:latest
+    container_name: cloudflareddns
+    restart: always
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - UMASK=002
+      - TZ=${TZ:-America/Chicago}
+      - INTERVAL=300
+      - DETECTION_MODE=dig-whoami.cloudflare
+      - LOG_LEVEL=3
+      - CF_USER=${CF_USER}
+      - CF_APITOKEN=${CF_APITOKEN}
+      - CF_APIKEY=${CF_APIKEY:-}
+      - CF_APITOKEN_ZONE=${CF_APITOKEN_ZONE:-}
+      - CF_ZONES=${CF_ZONES}
+      - CF_HOSTS=${CF_HOSTS}
+      - CF_RECORDTYPES=A
+      - VPN_ENABLED=false
+      - PRIVOXY_ENABLED=false
+      - UNBOUND_ENABLED=false
+    networks:
+      - web
+
+  jellystat:
+    image: cyfershepard/jellystat:latest
+    container_name: jellystat
     restart: unless-stopped
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-America/New_York}
+      - POSTGRES_DB=${JELLYSTAT_DB_NAME:-jellystat}
+      - POSTGRES_USER=${JELLYSTAT_DB_USER:-jellystat}
+      - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASS:-change-this-to-a-secure-password}
+      - POSTGRES_IP=jellystat-postgres
+      - POSTGRES_PORT=5432
+      - JWT_SECRET=${JELLYSTAT_JWT_SECRET:-my-secret-jwt-key}
     ports:
-      - "9983:80"
+      - "3100:3000"
     volumes:
-      - ${APPDATA_PATH}/organizr:/config
+      - ${APPDATA_PATH}/jellystat/backup-data:/app/backend/backup-data:z
+    depends_on:
+      - jellystat-postgres
     networks:
       - web
     labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+      - "homepage.group=Media"
+      - "homepage.name=Jellystat"
+      - "homepage.icon=jellyfin.png"
+      - "homepage.href=http://minipc.lan:3100"
+      - "homepage.widget.type=jellystat"
+      - "homepage.widget.url=http://minipc.lan:3100"
+      - "homepage.widget.key={{HOMEPAGE_VAR_JELLYSTAT_API_KEY}}"
 
-  # Optional: Homepage dashboard
-  homepage:
-    image: ghcr.io/gethomepage/homepage:latest
-    container_name: homepage
+  jellystat-postgres:
+    image: postgres:18
+    container_name: jellystat-postgres
     restart: unless-stopped
     environment:
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
-    ports:
-      - "3000:3000"
+      - POSTGRES_USER=${JELLYSTAT_DB_USER:-jellystat}
+      - POSTGRES_PASSWORD=${JELLYSTAT_DB_PASS:-change-this-to-a-secure-password}
+      - POSTGRES_DB=${JELLYSTAT_DB_NAME:-jellystat}
     volumes:
-      - ${APPDATA_PATH}/homepage:/app/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${APPDATA_PATH}/jellystat/postgres:/var/lib/postgresql:z
     networks:
       - web
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
 
 networks:
   web:

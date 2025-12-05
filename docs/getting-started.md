@@ -51,9 +51,9 @@ Prefer to drive everything yourself? Run through these steps:
 | --- | --- | --- |
 | Plex | `http://<ip>:32400/web` | Claim token required during setup |
 | Jellyfin | `http://<ip>:8096` | TLS via `https://<ip>:8920` if desired |
-| Overseerr | `http://<ip>:5055` | Routed through the VPS in production |
+| Jellyseerr | `http://<ip>:5055` | Media request management |
 | Nextcloud | `http://<ip>:8080` | Admin + DB passwords prompted by wizard |
-| Immich | `http://<ip>:2283` | PostgreSQL + Redis secrets set during setup |
+| Komga | `http://<ip>:25600` | Comics/Manga/Ebook server |
 
 ## Troubleshooting cheats
 ```bash
