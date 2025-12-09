@@ -1,0 +1,15 @@
+[Unit]
+Description=Set Intel PL1/PL2 Power Limits
+After=multi-user.target
+
+[Service]
+Type=oneshot
+# Enable the constraint
+ExecStart=/usr/bin/sh -c "echo 1 > /sys/class/powercap/intel-rapl:0/enabled"
+# Set PL1 (Long Duration) to 65W
+ExecStart=/usr/bin/sh -c "echo 65000000 > /sys/class/powercap/intel-rapl:0/constraint_0_power_limit_uw"
+# Set PL2 (Short Duration) to 90W
+ExecStart=/usr/bin/sh -c "echo 90000000 > /sys/class/powercap/intel-rapl:0/constraint_1_power_limit_uw"
+
+[Install]
+WantedBy=multi-user.target
