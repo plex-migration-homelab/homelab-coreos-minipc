@@ -21,7 +21,7 @@ KEYS_DIR="$SCRIPT_DIR/keys"
 DEFAULT_OUTPUT_DIR="$SCRIPT_DIR/peer-configs"
 
 ENDPOINT=""
-ALLOWED_IPS="10.253.0.0/24"
+ALLOWED_IPS="10.253.1.0/24"
 DNS=""
 OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
 
@@ -89,10 +89,10 @@ declare -A PEER_LABELS=(
 )
 
 declare -A PEER_ADDRESSES=(
-    [desktop]="10.253.0.6/32"
-    [vps]="10.253.0.8/32"
-    [iphone]="10.253.0.9/32"
-    [laptop]="10.253.0.11/32"
+    [desktop]="10.253.1.6/32"
+    [vps]="10.253.1.3/32"
+    [iphone]="10.253.1.9/32"
+    [laptop]="10.253.1.11/32"
 )
 
 PEER_ORDER=(desktop vps iphone laptop)
