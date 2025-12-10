@@ -2,7 +2,7 @@
 
 [Interface]
 PrivateKey=[SERVER_PRIVATE_KEY]
-Address=10.253.0.1/24
+Address=10.253.1.1/24
 ListenPort=51820
 
 # Enable IP forwarding and NAT for WireGuard clients
@@ -13,26 +13,26 @@ PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACC
 #LAN-Desktop-Justin
 PublicKey=[DESKTOP_PUBLIC_KEY]
 PresharedKey=[DESKTOP_PRESHARED_KEY]
-AllowedIPs=10.253.0.6/32
+AllowedIPs=10.253.1.6/32
 PersistentKeepalive=30
 
 [Peer]
 #VPS
 PublicKey=[VPS_PUBLIC_KEY]
 PresharedKey=[VPS_PRESHARED_KEY]
-AllowedIPs=10.253.0.8/32
+AllowedIPs=10.253.1.3/32
 PersistentKeepalive=30
 
 [Peer]
 #iPhone
 PublicKey=[IPHONE_PUBLIC_KEY]
 PresharedKey=[IPHONE_PRESHARED_KEY]
-AllowedIPs=10.253.0.9/32
+AllowedIPs=10.253.1.9/32
 PersistentKeepalive=30
 
 [Peer]
 #Framework Laptop Justin
 PublicKey=[LAPTOP_PUBLIC_KEY]
 PresharedKey=[LAPTOP_PRESHARED_KEY]
-AllowedIPs=10.253.0.11/32
+AllowedIPs=10.253.1.11/32
 PersistentKeepalive=30
