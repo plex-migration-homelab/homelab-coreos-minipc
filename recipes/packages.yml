@@ -11,7 +11,8 @@ modules:
       - libva                   # VAAPI core library
       - libva-utils             # vainfo and debugging tools
       - ffmpeg                  # Hardware-accelerated encoding/decoding
-      - gstreamer1-vaapi        # GStreamer VAAPI plugin
+      - gstreamer1-vaapi
+      - igt-gpu-tools      # GStreamer VAAPI plugin
 
       # Shell and utilities
       - zsh                     # Z shell
