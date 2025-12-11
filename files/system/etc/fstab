@@ -2,7 +2,7 @@
 #//192.168.7.179/Media /mnt/nas-media cifs ro,guest,uid=1001,gid=1001,iocharset=utf8,vers=3.1.1,cache=loose,actimeo=3600,rsize=4194304,noserverino,_netdev,nofail,x-systemd.after=network-online.target 0 0
 
 #NFS mount for media
-192.168.7.179:/mnt/user/Media /mnt/nas-media nfs4 ro,hard,bg,nconnect=8,rsize=1048576,wsize=1048576,actimeo=600,nocto,lookupcache=positive,noatime,_netdev,nofail,x-systemd.requires=network-online.target 0 0
+192.168.7.179:/mnt/user/Media /mnt/nas-media nfs4 ro,hard,bg,nconnect=16,rsize=1048576,wsize=1048576,actimeo=600,nocto,lookupcache=positive,noatime,_netdev,nofail,x-systemd.requires=network-online.target 0 0
 
 # SMB mount added by homelab-setup
 //192.168.7.179/nextcloud /var/mnt/nas-nextcloud cifs rw,credentials=/etc/smb.cred,vers=3.1.1,uid=1001,gid=1001,file_mode=0770,dir_mode=0770,iocharset=utf8,nofail,x-systemd.automount,x-systemd.idle-timeout=60,x-systemd.device-timeout=5s,soft,retrans=2,echo_interval=15,mfsymlinks,noserverino,nobrl 0 0
