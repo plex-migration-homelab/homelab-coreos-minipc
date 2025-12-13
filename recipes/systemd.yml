@@ -8,3 +8,4 @@ system:
     - cpu-epp.service
     - cpu-power-limit.service
     - cockpit.socket
+    - fail2ban.service
