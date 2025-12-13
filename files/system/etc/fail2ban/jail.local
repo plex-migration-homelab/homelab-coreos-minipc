@@ -14,7 +14,7 @@ bantime = 24h
 [caddy-auth]
 enabled = true
 filter = caddy-auth
-logpath = /var/lib/containers/appdata/caddy/access.log
+logpath = /var/lib/containers/appdata/caddy/data/access.log
 maxretry = 5
 findtime = 5m
 bantime = 1h
@@ -22,7 +22,7 @@ bantime = 1h
 [jellyfin]
 enabled = true
 filter = jellyfin
-logpath = /var/lib/containers/appdata/caddy/access.log
+logpath = /var/lib/containers/appdata/caddy/data/access.log
 maxretry = 5
 findtime = 5m
 bantime = 1h
@@ -30,7 +30,7 @@ bantime = 1h
 [plex-abuse]
 enabled = true
 filter = plex-abuse
-logpath = /var/lib/containers/appdata/caddy/access.log
+logpath = /var/lib/containers/appdata/caddy/data/access.log
 maxretry = 20
 findtime = 1m
 bantime = 1h
