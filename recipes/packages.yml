@@ -44,3 +44,6 @@ modules:
       - cockpit-ws-selinux
       - cockpit-ostree
       - cockpit-files
+
+      # Security
+      - fail2ban                # Intrusion prevention system

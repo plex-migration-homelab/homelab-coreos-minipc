@@ -1,0 +1,36 @@
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+banaction = firewallcmd-rich-rules[actiontype=]
+backend = auto
+
+[sshd]
+enabled = true
+port = ssh
+maxretry = 3
+bantime = 24h
+
+[caddy-auth]
+enabled = true
+filter = caddy-auth
+logpath = /var/lib/containers/appdata/caddy/access.log
+maxretry = 5
+findtime = 5m
+bantime = 1h
+
+[jellyfin]
+enabled = true
+filter = jellyfin
+logpath = /var/lib/containers/appdata/caddy/access.log
+maxretry = 5
+findtime = 5m
+bantime = 1h
+
+[plex-abuse]
+enabled = true
+filter = plex-abuse
+logpath = /var/lib/containers/appdata/caddy/access.log
+maxretry = 20
+findtime = 1m
+bantime = 1h
