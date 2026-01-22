@@ -1,6 +1,6 @@
 # Homelab CoreOS Mini PC &nbsp; [![build](https://github.com/plex-migration-homelab/homelab-coreos-minipc/actions/workflows/build.yml/badge.svg)](https://github.com/plex-migration-homelab/homelab-coreos-minipc/actions/workflows/build.yml)
 
-Declarative image + helper tooling for the NAB9 mini PC. It rebases Fedora CoreOS into a custom UBlue uCore build, tunnels traffic through WireGuard to a VPS, and mounts media from the backend Fileserver over SMB.
+Declarative image + helper tooling for the NAB9 mini PC. It rebases Fedora CoreOS into a custom UBlue uCore build, tunnels traffic through WireGuard to a VPS, and mounts media from the backend Fileserver over NFS.
 
 ## Scope & Assumptions
 - Single-node helper for the user-facing side of the homelab.

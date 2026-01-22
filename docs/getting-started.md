@@ -22,7 +22,7 @@ homelab-setup
 1. **User Setup**: Creates the service user and configures UID/GID (65001).
 2. **Directory Setup**: Scaffolds `/srv/containers` and `/var/lib/containers/appdata`.
 3. **WireGuard**: Generates keys and configures the tunnel to the VPS.
-4. **SMB Mounts**: Connects to the Fileserver's `Media` and `nextcloud` shares.
+4. **NFS Mounts**: Connects to the Fileserver's `Media` and `nextcloud` shares.
 5. **Container Setup**: Deploys Portainer and initializes the stack repositories.
 
 ## 3. Verification
