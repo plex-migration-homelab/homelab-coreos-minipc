@@ -20,5 +20,5 @@ Declarative image + helper tooling for the NAB9 mini PC. It rebases Fedora CoreO
 3. **Expose services**: Plex/Jellyfin use direct port forwards. Other services route through the VPS Caddy reverse proxy.
 
 ## Documentation
-- [In-Depth Documentation Hub](/home/justin/Documents/plex/documentation/README.md): The main source of truth for the entire infrastructure.
+- [In-Depth Documentation Hub](https://github.com/plex-migration-homelab/homelab): The main source of truth for the entire infrastructure.
 - [`docs/getting-started.md`](docs/getting-started.md): Walkthrough for the image install and setup tool.
