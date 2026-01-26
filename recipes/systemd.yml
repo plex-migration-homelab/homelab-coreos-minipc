@@ -9,3 +9,4 @@ system:
     - cpu-power-limit.service
     - cockpit.socket
     - fail2ban.service
+    - docker-compose-agent.service

@@ -12,6 +12,7 @@ Declarative image + helper tooling for the NAB9 mini PC. It rebases Fedora CoreO
 - **Portals**: Jellyseerr and Wizarr.
 - **Cloud**: Nextcloud (AIO stack).
 - **Management**: Portainer (via systemd) managing GitOps-based Docker stacks.
+- **Agent**: Clawdbot infrastructure AI operator (Discord support, health monitoring).
 - **Platform**: Docker, WireGuard, VAAPI drivers for GPU acceleration.
 
 ## Getting Started
