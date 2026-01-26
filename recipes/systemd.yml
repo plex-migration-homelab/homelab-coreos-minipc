@@ -1,4 +1,3 @@
----
 # yaml-language-server: $schema=https://schema.blue-build.org/module-v1.json
 type: systemd
 system:
@@ -10,3 +9,4 @@ system:
     - cockpit.socket
     - fail2ban.service
     - docker-compose-agent.service
+    - docker-compose-maintenance.service
