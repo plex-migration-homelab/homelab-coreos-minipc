@@ -10,3 +10,4 @@ system:
     - fail2ban.service
     - docker-compose-agent.service
     - docker-compose-maintenance.service
+    - llm-diagnostic.timer

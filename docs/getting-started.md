@@ -27,6 +27,13 @@ homelab-setup
 
 ## 3. Verification
 Check that everything is mounted and running:
+
+### Daily diagnostics
+A systemd timer runs `/usr/bin/llm-diagnostic.sh` daily at 07:30, writing logs to:
+- `/var/log/llm-diagnostic/llm-diagnostic-YYYYMMDD.log`
+- `/var/log/llm-diagnostic/minipc-diagnostic-YYYYMMDD_HHMMSS.log`
+
+Logs older than 30 days are pruned automatically.
 ```bash
 # Check mounts
 df -h | grep /mnt/nas

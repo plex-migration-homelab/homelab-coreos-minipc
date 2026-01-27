@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily LLM Diagnostic Report Timer
+Requires=llm-diagnostic.service
+
+[Timer]
+OnCalendar=*-*-* 07:30:00
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
