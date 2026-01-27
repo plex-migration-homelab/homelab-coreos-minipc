@@ -1,0 +1,11 @@
+[Unit]
+Description=Plex Codec Ownership Check Timer
+Requires=plex-codec-ownership-check.service
+
+[Timer]
+OnCalendar=*:0/5
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
