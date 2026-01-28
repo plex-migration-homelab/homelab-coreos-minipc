@@ -34,6 +34,17 @@ A systemd timer runs `/usr/bin/llm-diagnostic.sh` daily at 07:30, writing logs t
 - `/var/log/llm-diagnostic/minipc-diagnostic-YYYYMMDD_HHMMSS.log`
 
 Logs older than 30 days are pruned automatically.
+
+### Curated diagnostics export
+A systemd timer runs `/usr/bin/clawdbot-export.sh` every 5 minutes (with a small randomized delay), writing curated troubleshooting artifacts to:
+- `/var/log/clawdbot-export/kernel.tail.txt`
+- `/var/log/clawdbot-export/systemd.failed.txt`
+- `/var/log/clawdbot-export/mounts.txt`
+- `/var/log/clawdbot-export/systemd-mount-units.txt`
+- `/var/log/clawdbot-export/journal.<unit>.txt`
+- `/var/log/clawdbot-export/latest-diagnostic.head.txt`
+- `/var/log/clawdbot-export/latest-diagnostic.tail.txt`
+
 ```bash
 # Check mounts
 df -h | grep /mnt/nas

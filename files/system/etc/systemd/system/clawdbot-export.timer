@@ -1,0 +1,12 @@
+[Unit]
+Description=Clawdbot Curated Diagnostics Export Timer
+Requires=clawdbot-export.service
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=5m
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

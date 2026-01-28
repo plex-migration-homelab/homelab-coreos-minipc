@@ -1,0 +1,15 @@
+[Unit]
+Description=Clawdbot Curated Diagnostics Export
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/clawdbot-export.sh
+StandardOutput=journal
+StandardError=journal
+User=root
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
