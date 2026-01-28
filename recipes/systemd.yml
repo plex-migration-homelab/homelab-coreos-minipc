@@ -12,3 +12,4 @@ system:
     - docker-compose-maintenance.service
     - llm-diagnostic.timer
     - clawdbot-export.timer
+    - plex-codec-ownership-check.timer
