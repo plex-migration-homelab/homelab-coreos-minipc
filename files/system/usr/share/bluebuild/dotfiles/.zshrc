@@ -19,6 +19,9 @@ unset -v fallback_term previous_term
 if [[ -f "/opt/homebrew/bin/brew" ]]; then
   # If you're using macOS, you'll want this enabled
   eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [[ -f "/home/linuxbrew/.linuxbrew/bin/brew" ]]; then
+  # Linux Homebrew
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
 
 # Set the directory we want to store zinit and plugins
