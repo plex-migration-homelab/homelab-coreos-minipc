@@ -1,0 +1,15 @@
+[Unit]
+Description=Clawdbot Zombie Container Purge
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/clawdbot-zombie-purge.sh
+StandardOutput=journal
+StandardError=journal
+User=root
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
