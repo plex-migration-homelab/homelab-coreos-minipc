@@ -4,3 +4,4 @@ chmod 755 /usr/bin/plex-codec-cleanup.sh
 chmod 755 /usr/bin/plex-codec-ownership-check.sh
 chmod 755 /usr/bin/llm-diagnostic.sh
 chmod 755 /usr/bin/clawdbot-export.sh
+chmod 755 /usr/bin/clawdbot-zombie-purge.sh
