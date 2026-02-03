@@ -266,6 +266,7 @@ echo "Checking /mnt/nas-media (NFS)..."
 if timeout 3s ls -la "/mnt/nas-media" > /dev/null 2>&1; then
     count=$(ls -1 "/mnt/nas-media" 2>/dev/null | wc -l)
     echo "  OK: NFS Accessible ($count items)"
+    echo "  NOTE: /mnt/nas-media is expected RO on Mini PC"
 else
     echo "  ERROR: NFS Mount is Stale or Unresponsive"
 fi
