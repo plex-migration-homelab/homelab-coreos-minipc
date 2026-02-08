@@ -14,3 +14,4 @@ system:
     - clawdbot-export.timer
     - clawdbot-zombie-purge.timer
     - plex-codec-ownership-check.timer
+    - cachefilesd.service

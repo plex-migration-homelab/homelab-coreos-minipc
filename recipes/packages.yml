@@ -47,3 +47,6 @@ modules:
 
       # Security
       - fail2ban                # Intrusion prevention system
+
+      # Caching and Performance
+      - cachefilesd             # FS-Cache daemon
