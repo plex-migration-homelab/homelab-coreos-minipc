@@ -31,10 +31,10 @@ fi
 # 3. Fix Permissions (Entire Directory)
 # This may take time depending on library size
 log "Setting ownership of ${PLEX_ROOT_DIR} to ${PLEX_UID}:${PLEX_GID}..."
-chown -R "${PLEX_UID}:${PLEX_GID}" "$PLEX_ROOT_DIR"
+find "$PLEX_ROOT_DIR" \( ! -user "$PLEX_UID" -o ! -group "$PLEX_GID" \) -exec chown "${PLEX_UID}:${PLEX_GID}" {} +
 
-log "Setting permissions of ${PLEX_ROOT_DIR} to 775..."
-chmod -R 775 "$PLEX_ROOT_DIR"
+log "Setting owner/group read-write on ${PLEX_ROOT_DIR}..."
+chmod -R u+rwX,g+rwX "$PLEX_ROOT_DIR"
 
 # 4. Start Plex
 log "Starting Plex container..."

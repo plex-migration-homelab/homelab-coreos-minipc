@@ -3,8 +3,6 @@ Description=Docker Compose - Clawdbot Agent Stack
 Documentation=https://github.com/clawdbot/clawdbot
 Requires=docker.service network-online.target
 After=docker.service network-online.target
-# Wait for NAS media mount (for health checks)
-RequiresMountsFor=/mnt/nas-media
 
 [Service]
 Type=oneshot

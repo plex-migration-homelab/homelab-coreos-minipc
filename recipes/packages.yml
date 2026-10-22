@@ -11,8 +11,7 @@ modules:
       - libva                   # VAAPI core library
       - libva-utils             # vainfo and debugging tools
       - ffmpeg                  # Hardware-accelerated encoding/decoding
-      - gstreamer1-vaapi
-      - igt-gpu-tools      # GStreamer VAAPI plugin
+      - igt-gpu-tools           # intel_gpu_top
 
       # Shell and utilities
       - zsh                     # Z shell
@@ -24,7 +23,7 @@ modules:
       - neovim
       - htop
       - wget
-      - kitty
+      - kitty-terminfo
       - fzf
       - zoxide
       - tmux
@@ -47,6 +46,3 @@ modules:
 
       # Security
       - fail2ban                # Intrusion prevention system
-
-      # Caching and Performance
-      - cachefilesd             # FS-Cache daemon

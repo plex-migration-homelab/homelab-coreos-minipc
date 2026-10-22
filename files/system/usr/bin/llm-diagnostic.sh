@@ -245,7 +245,7 @@ df -hi / /var | grep -v "Filesystem"
 echo "---"
 echo "TOP 10 CONSUMERS IN /var/lib/containers/appdata:"
 if [ -d "/var/lib/containers/appdata" ]; then
-    timeout 15s du -h --max-depth=1 /var/lib/containers/appdata 2>/dev/null | sort -hr | head -10
+    timeout 60s du -h --max-depth=1 /var/lib/containers/appdata 2>/dev/null | sort -hr | head -10 || echo "WARNING: du timed out; list may be incomplete."
 else
     echo "CRITICAL: /var/lib/containers/appdata does not exist."
 fi

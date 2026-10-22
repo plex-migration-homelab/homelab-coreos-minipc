@@ -11,7 +11,5 @@ system:
     - docker-compose-agent.service
     - llm-diagnostic.timer
     - clawdbot-export.timer
-    - clawdbot-zombie-purge.timer
     - plex-codec-ownership-check.timer
-    - cachefilesd.service
     - kdump.service
