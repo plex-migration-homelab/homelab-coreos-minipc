@@ -88,26 +88,22 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
 5. Exercise connectivity by spinning up a WireGuard peer on your workstation using the generated keys and pinging `10.253.0.1`.
 6. Simulate endpoint loss by disconnecting the VM NIC; confirm that `wg-quick@wg0` automatically retries because of `Restart=on-failure`.
 
-## 6. Podman Compose Stack Validation
+## 6. Compose Stack Validation
 
-1. Stage the compose workspace:
-   ```bash
-   sudo cp -r /home/core/setup/compose-setup /var/home/core/compose
-   sudo chown -R core:core /var/home/core/compose
-   cd /var/home/core/compose
-   ```
-2. Create an `.env` file with the secrets referenced by the bundles (see `cloud.yml`, `media.yml`, and `web.yml`).【F:files/system/usr/share/compose-setup/cloud.yml†L1-L93】【F:files/system/usr/share/compose-setup/media.yml†L1-L88】【F:files/system/usr/share/compose-setup/web.yml†L1-L84】
+1. Run the `homelab-setup` container step, which clones `compose-stack` into `/srv/containers` and starts Portainer.
+2. Create a `.env` in each stack directory from that stack's `.env.example`.
 3. Start each stack individually to isolate failures:
    ```bash
-   podman compose -f media.yml up -d
-   podman compose -f web.yml up -d
-   podman compose -f cloud.yml up -d
+   cd /srv/containers
+   docker compose -f media/compose.yml up -d
+   docker compose -f web/compose.yml up -d
+   docker compose -f cloud/nextcloud/compose.yml up -d
    ```
 4. Inspect container health and logs:
    ```bash
-   podman ps --format '{{.Names}}\t{{.Status}}'
-   podman logs nextcloud
-   podman logs jellyfin
+   docker ps --format '{{.Names}}\t{{.Status}}'
+   docker logs nextcloud
+   docker logs jellyfin
    ```
 5. Confirm that services relying on NFS succeed (Nextcloud data volume). Missing mounts will surface as permission errors; correlate with Section 4.
 6. Tear down and rebuild to ensure idempotence: `podman compose -f media.yml down --volumes` followed by another `up` cycle.
@@ -131,7 +127,7 @@ This guide describes how to validate the `homelab-coreos-minipc` uCore image end
 |---------|--------------|------------|
 | Mount units stuck in `activating` | virtiofs share missing or wrong path | Reattach share, rerun `systemctl restart mnt-nas-*.mount`. |
 | `wg-quick@wg0` fails at boot | `.env` missing keys or NIC mismatch | Regenerate keys and set `WG_OUTBOUND_INTERFACE` before rerunning `apply-config.sh`.【F:files/system/usr/share/wireguard-setup/apply-config.sh†L31-L82】 |
-| Compose services exit immediately | Secrets/env vars missing | Populate `.env` with all variables referenced in the compose YAML files.【F:files/system/usr/share/compose-setup/cloud.yml†L9-L73】 |
+| Compose services exit immediately | Secrets/env vars missing | Populate each stack's `.env` with every variable in its `.env.example`. |
 | Nextcloud volume permissions errors | Virtiofs share exported read-only | Re-export with read/write or adjust `Options` on the share to mirror NFS expectations.【F:files/system/etc/systemd/system/mnt-nas-nextcloud.mount†L10-L16】 |
 | rpm-ostree rebase blocked | Image registry unreachable | Verify host networking and that the target tag exists in GHCR. |
 

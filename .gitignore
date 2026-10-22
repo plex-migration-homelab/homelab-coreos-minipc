@@ -53,5 +53,6 @@ ignition/*.ign
 !ignition/*.template
 
 # homelab-setup source is now in separate repo: plex-migration-homelab/homelab-setup
-# Only the compiled binary at files/system/usr/bin/homelab-setup is tracked here
+# The binary is published as the "homelab-setup" release asset and downloaded at image build
 homelab-setup-src/
+files/system/usr/bin/homelab-setup

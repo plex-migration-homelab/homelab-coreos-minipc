@@ -22,6 +22,7 @@ modules:
   - type: script
     scripts:
       - chmod-plex-cleanup.sh
+      - install-homelab-setup.sh
 
   - from-file: systemd.yml
 

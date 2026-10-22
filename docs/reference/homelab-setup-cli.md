@@ -189,7 +189,6 @@ http://<your-ip>:25600      # Komga
 └── usr/
     ├── lib/systemd/system/      # Pre-configured services (read-only)
     └── share/
-        ├── compose-setup/       # Template compose files
         └── wireguard-setup/     # Template WireGuard configs
 ```
 
