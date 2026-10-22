@@ -15,67 +15,66 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   build:
     name: Build Go Binary from Forked Repo
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
 
     steps:
-      - name: Checkout this BlueBuild repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GH_PAT }}
-
       - name: Checkout homelab-setup source from forked repo
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: plex-migration-homelab/homelab-setup
           path: homelab-setup-src
           fetch-depth: 0
-          # FIX: Added token here to allow access to the organization repo
           token: ${{ secrets.GH_PAT }}
 
+      # The release notes hold the upstream commit the published binary was built from
+      - name: Check for upstream changes
+        id: check
+        run: |
+          sha=$(git -C homelab-setup-src rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if gh release view homelab-setup --repo "$GITHUB_REPOSITORY" --json body -q .body 2>/dev/null | grep -qx "$sha"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Go
+        if: steps.check.outputs.changed == 'true'
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.23'
           cache-dependency-path: homelab-setup-src/homelab-setup/go.sum
 
       - name: Run tests
+        if: steps.check.outputs.changed == 'true'
         working-directory: homelab-setup-src/homelab-setup
         run: go test ./... -v
 
       - name: Build binary
+        if: steps.check.outputs.changed == 'true'
         working-directory: homelab-setup-src/homelab-setup
-        run: make build
-
-      - name: Copy binary to files directory
         run: |
-          mkdir -p files/system/usr/bin
-          cp homelab-setup-src/homelab-setup/bin/homelab-setup files/system/usr/bin/
-          chmod +x files/system/usr/bin/homelab-setup
+          make build
+          bin/homelab-setup version
+          cd bin && sha256sum homelab-setup > homelab-setup.sha256
 
-      - name: Verify binary
-        run: files/system/usr/bin/homelab-setup version
-
-      - name: Check for changes
-        id: check_changes
+      - name: Publish release asset
+        if: steps.check.outputs.changed == 'true' && github.event_name != 'pull_request'
+        working-directory: homelab-setup-src/homelab-setup/bin
         run: |
-          git diff --exit-code files/system/usr/bin/homelab-setup || echo "changed=true" >> $GITHUB_OUTPUT
-
-      - name: Commit and push if changed
-        if: steps.check_changes.outputs.changed == 'true' && github.event_name != 'pull_request'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add files/system/usr/bin/homelab-setup
-          git commit -m "chore: rebuild homelab-setup binary from upstream [skip ci]"
-          git push
-
-      - name: Upload binary as artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: homelab-setup-binary
-          path: files/system/usr/bin/homelab-setup
-          retention-days: 30
+          if gh release view homelab-setup --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload homelab-setup homelab-setup homelab-setup.sha256 --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit homelab-setup --notes "${{ steps.check.outputs.sha }}" --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create homelab-setup homelab-setup homelab-setup.sha256 --title homelab-setup --notes "${{ steps.check.outputs.sha }}" --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
+          fi
+          gh workflow run build.yml --ref main --repo "$GITHUB_REPOSITORY"
