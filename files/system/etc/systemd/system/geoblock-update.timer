@@ -1,0 +1,12 @@
+[Unit]
+Description=Geoblock Update Timer
+Requires=geoblock-update.service
+
+[Timer]
+OnBootSec=1min
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

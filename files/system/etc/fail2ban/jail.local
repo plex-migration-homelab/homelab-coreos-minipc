@@ -4,6 +4,7 @@ findtime = 10m
 maxretry = 5
 banaction = firewallcmd-rich-rules[actiontype=]
 backend = auto
+ignoreip = 127.0.0.1/8 ::1 192.168.0.0/16
 
 [sshd]
 enabled = true
@@ -15,7 +16,10 @@ bantime = 24h
 enabled = true
 filter = caddy-auth
 # UPDATED PATH
-logpath = /var/log/caddy/access.log
+logpath = /var/log/caddy/music.log
+          /var/log/caddy/nextcloud.log
+# Caddy is reached via Docker DNAT (FORWARD), which firewalld INPUT bans never see
+banaction = nftables[type=custom, chain_hook=prerouting, chain_priority=-150, blocktype=drop]
 maxretry = 5
 findtime = 5m
 bantime = 1h
@@ -24,7 +28,8 @@ bantime = 1h
 enabled = true
 filter = jellyfin
 # UPDATED PATH
-logpath = /var/log/caddy/access.log
+logpath = /var/log/caddy/jellyfin.log
+banaction = nftables[type=custom, chain_hook=prerouting, chain_priority=-150, blocktype=drop]
 maxretry = 5
 findtime = 5m
 bantime = 1h

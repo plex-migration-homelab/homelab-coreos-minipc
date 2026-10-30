@@ -11,4 +11,5 @@ system:
     - llm-diagnostic.timer
     - clawdbot-export.timer
     - plex-codec-ownership-check.timer
+    - geoblock-update.timer
     - kdump.service
